@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}">
+    <title>Transactions - Banking System</title>
+</head>
+<body>
+    <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="fas fa-exchange-alt me-2"></i>Money Transfer
+                </h1>
+            </div>
+        </div>
+
+        <!-- Transaction Forms -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="transfer-tab" data-bs-toggle="tab" data-bs-target="#transfer-pane" type="button" role="tab" aria-controls="transfer-pane" aria-selected="true">
+                                    <i class="fas fa-paper-plane me-1"></i>Transfer
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="deposit-tab" data-bs-toggle="tab" data-bs-target="#deposit-pane" type="button" role="tab" aria-controls="deposit-pane" aria-selected="false">
+                                    <i class="fas fa-plus me-1"></i>Deposit
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="withdraw-tab" data-bs-toggle="tab" data-bs-target="#withdraw-pane" type="button" role="tab" aria-controls="withdraw-pane" aria-selected="false">
+                                    <i class="fas fa-minus me-1"></i>Withdraw
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div class="tab-content">
+                            <!-- Transfer Tab -->
+                            <div class="tab-pane fade show active" id="transfer-pane" role="tabpanel" aria-labelledby="transfer-tab">
+                                <form id="transferForm">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="fromAccount" class="form-label">From Account</label>
+                                    <select class="form-select" id="fromAccount" name="fromAccount" required>
+                                        <option value="">Select Account</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="toAccount" class="form-label">To Account Number</label>
+                                    <input type="text" class="form-control" id="toAccount" name="toAccount" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="amount" class="form-label">Amount</label>
+                                    <input type="number" class="form-control" id="amount" name="amount" 
+                                           min="1" max="100000" step="0.01" required>
+                                    <div class="form-text">Max: ₹1,00,000 per transaction, ₹2,00,000 daily limit</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="description" class="form-label">Description (Optional)</label>
+                                    <input type="text" class="form-control" id="description" name="description">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="transferBtn">
+                                <span class="spinner-border spinner-border-sm d-none me-2" id="transferSpinner"></span>
+                                Transfer Money
+                            </button>
+                                </form>
+                                <div id="transfer-message" class="mt-3"></div>
+                            </div>
+                            
+                            <!-- Deposit Tab -->
+                            <div class="tab-pane fade" id="deposit-pane" role="tabpanel" aria-labelledby="deposit-tab">
+                                <form id="depositForm">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="depositAccount" class="form-label">Account</label>
+                                            <select class="form-select" id="depositAccount" name="accountNumber" required>
+                                                <option value="">Select Account</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="depositAmount" class="form-label">Amount</label>
+                                            <input type="number" class="form-control" id="depositAmount" name="amount" min="1" max="100000" step="0.01" required>
+                                            <div class="form-text">Max: ₹1,00,000 per transaction, ₹2,00,000 daily limit</div>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-success" id="depositBtn">
+                                        <span class="spinner-border spinner-border-sm d-none me-2" id="depositSpinner"></span>
+                                        <i class="fas fa-plus me-1"></i>Deposit Money
+                                    </button>
+                                </form>
+                                <div id="deposit-message" class="mt-3"></div>
+                            </div>
+                            
+                            <!-- Withdraw Tab -->
+                            <div class="tab-pane fade" id="withdraw-pane" role="tabpanel" aria-labelledby="withdraw-tab">
+                                <form id="withdrawForm">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="withdrawAccount" class="form-label">Account</label>
+                                            <select class="form-select" id="withdrawAccount" name="accountNumber" required>
+                                                <option value="">Select Account</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="withdrawAmount" class="form-label">Amount</label>
+                                            <input type="number" class="form-control" id="withdrawAmount" name="amount" min="1" max="100000" step="0.01" required>
+                                            <div class="form-text">Max: ₹1,00,000 per transaction, ₹2,00,000 daily limit</div>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-warning" id="withdrawBtn">
+                                        <span class="spinner-border spinner-border-sm d-none me-2" id="withdrawSpinner"></span>
+                                        <i class="fas fa-minus me-1"></i>Withdraw Money
+                                    </button>
+                                </form>
+                                <div id="withdraw-message" class="mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Account Balance -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-wallet me-2"></i>Account Balances</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="account-balances">
+                            <div class="text-center">
+                                <div class="spinner-border spinner-border-sm"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    <script th:src="@{/js/auth.js}"></script>
+    <script th:src="@{/js/inactivity-logout.js}"></script>
+    <script>
+        // API call function
+        async function apiCall(endpoint, options = {}) {
+            const token = localStorage.getItem('accessToken');
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                }
+            };
+            const finalOptions = { ...defaultOptions, ...options, headers: { ...defaultOptions.headers, ...options.headers } };
+            const response = await fetch('/api' + endpoint, finalOptions);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('API Error Response:', errorData);
+                throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
+            }
+            
+            // Handle empty responses (like deposit/withdraw)
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return await response.json();
+            } else {
+                return {}; // Return empty object for void responses
+            }
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+        }
+        
+        function showError(elementId, message) {
+            document.getElementById(elementId).innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${message}</div>`;
+        }
+        
+        function showSuccess(elementId, message) {
+            document.getElementById(elementId).innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>${message}</div>`;
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!localStorage.getItem('accessToken')) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            // Manual tab switching
+            document.getElementById('transfer-tab').addEventListener('click', () => switchTab('transfer'));
+            document.getElementById('deposit-tab').addEventListener('click', () => switchTab('deposit'));
+            document.getElementById('withdraw-tab').addEventListener('click', () => switchTab('withdraw'));
+            
+            loadAccounts();
+            document.getElementById('transferForm').addEventListener('submit', handleTransfer);
+            document.getElementById('depositForm').addEventListener('submit', handleDeposit);
+            document.getElementById('withdrawForm').addEventListener('submit', handleWithdraw);
+        });
+        
+        function switchTab(tabName) {
+            // Remove active classes
+            document.querySelectorAll('.nav-link').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.remove('show', 'active');
+            });
+            
+            // Add active classes to selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            document.getElementById(tabName + '-pane').classList.add('show', 'active');
+        }
+
+        async function loadAccounts() {
+            try {
+                console.log('Loading accounts...');
+                const accounts = await apiCall('/account/list');
+                console.log('Accounts loaded:', accounts);
+                
+                if (!accounts || accounts.length === 0) {
+                    document.getElementById('account-balances').innerHTML = '<p class="text-muted">No accounts found</p>';
+                    return;
+                }
+                
+                // Populate all account dropdowns
+                const fromSelect = document.getElementById('fromAccount');
+                const depositSelect = document.getElementById('depositAccount');
+                const withdrawSelect = document.getElementById('withdrawAccount');
+                
+                const accountOptions = accounts.map(account => 
+                    `<option value="${account.accountNumber}">${account.accountNumber} - ${formatCurrency(account.balance)}</option>`
+                ).join('');
+                
+                fromSelect.innerHTML = '<option value="">Select Account</option>' + accountOptions;
+                depositSelect.innerHTML = '<option value="">Select Account</option>' + accountOptions;
+                withdrawSelect.innerHTML = '<option value="">Select Account</option>' + accountOptions;
+                
+                let balancesHtml = accounts.map(account => `
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>${account.accountNumber}</span>
+                        <strong>${formatCurrency(account.balance)}</strong>
+                    </div>
+                `).join('');
+                
+                document.getElementById('account-balances').innerHTML = balancesHtml;
+            } catch (error) {
+                console.error('Failed to load accounts:', error);
+                document.getElementById('account-balances').innerHTML = '<div class="alert alert-danger">Failed to load accounts: ' + error.message + '</div>';
+            }
+        }
+
+        async function handleTransfer(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                fromAccount: formData.get('fromAccount'),
+                toAccount: formData.get('toAccount'),
+                amount: parseFloat(formData.get('amount'))
+            };
+            
+            // Validation
+            if (!data.fromAccount || !data.toAccount || !data.amount) {
+                showError('transfer-message', 'Please fill in all required fields');
+                return;
+            }
+            
+            if (data.fromAccount === data.toAccount) {
+                showError('transfer-message', 'Cannot transfer to the same account');
+                return;
+            }
+            
+            if (data.amount <= 0) {
+                showError('transfer-message', 'Amount must be greater than 0');
+                return;
+            }
+            
+            if (data.amount > 100000) {
+                showError('transfer-message', 'Transfer amount exceeds per-transaction limit of ₹1,00,000');
+                return;
+            }
+            
+            console.log('Transfer data:', data);
+            
+            const btn = document.getElementById('transferBtn');
+            const spinner = document.getElementById('transferSpinner');
+            
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            try {
+                await apiCall('/account/transfer', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                
+                showSuccess('transfer-message', 'Transfer completed successfully!');
+                e.target.reset();
+                loadAccounts(); // Refresh balances
+                
+                // Trigger dashboard refresh if function exists
+                if (window.opener && window.opener.refreshDashboardData) {
+                    window.opener.refreshDashboardData();
+                }
+            } catch (error) {
+                console.error('Transfer error:', error);
+                showError('transfer-message', 'Transfer failed: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
+        
+        async function handleDeposit(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                accountNumber: formData.get('accountNumber'),
+                amount: parseFloat(formData.get('amount'))
+            };
+            
+            console.log('Deposit data:', data);
+            
+            if (!data.accountNumber || !data.amount || data.amount <= 0) {
+                showError('deposit-message', 'Please fill in all required fields with valid amounts');
+                return;
+            }
+            
+            if (data.amount > 100000) {
+                showError('deposit-message', 'Deposit amount exceeds per-transaction limit of ₹1,00,000');
+                return;
+            }
+            
+            const btn = document.getElementById('depositBtn');
+            const spinner = document.getElementById('depositSpinner');
+            
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            try {
+                const result = await apiCall('/account/deposit', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                
+                console.log('Deposit result:', result);
+                showSuccess('deposit-message', `Successfully deposited ${formatCurrency(data.amount)}`);
+                e.target.reset();
+                loadAccounts();
+                
+                // Trigger dashboard refresh if function exists
+                if (window.opener && window.opener.refreshDashboardData) {
+                    window.opener.refreshDashboardData();
+                }
+            } catch (error) {
+                console.error('Deposit error:', error);
+                showError('deposit-message', 'Deposit failed: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
+        
+        async function handleWithdraw(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                accountNumber: formData.get('accountNumber'),
+                amount: parseFloat(formData.get('amount'))
+            };
+            
+            console.log('Withdraw data:', data);
+            
+            if (!data.accountNumber || !data.amount || data.amount <= 0) {
+                showError('withdraw-message', 'Please fill in all required fields with valid amounts');
+                return;
+            }
+            
+            if (data.amount > 100000) {
+                showError('withdraw-message', 'Withdrawal amount exceeds per-transaction limit of ₹1,00,000');
+                return;
+            }
+            
+            const btn = document.getElementById('withdrawBtn');
+            const spinner = document.getElementById('withdrawSpinner');
+            
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            try {
+                const result = await apiCall('/account/withdraw', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                
+                console.log('Withdraw result:', result);
+                showSuccess('withdraw-message', `Successfully withdrew ${formatCurrency(data.amount)}`);
+                e.target.reset();
+                loadAccounts();
+                
+                // Trigger dashboard refresh if function exists
+                if (window.opener && window.opener.refreshDashboardData) {
+                    window.opener.refreshDashboardData();
+                }
+            } catch (error) {
+                console.error('Withdraw error:', error);
+                showError('withdraw-message', 'Withdrawal failed: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
+    </script>
+</body>
+</html>

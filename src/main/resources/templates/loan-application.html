@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}">
+    <title>Loan Application - Banking System</title>
+</head>
+<body>
+    <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="fas fa-hand-holding-usd me-2"></i>Apply for Loan
+                </h1>
+            </div>
+        </div>
+
+        <!-- Loan Application Form -->
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Loan Application</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="loanForm">
+                            <!-- Loan Type Selection -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="loanType" class="form-label">Loan Type</label>
+                                    <select class="form-select" id="loanType" name="loanType" required onchange="showLoanFields()">
+                                        <option value="">Select Loan Type</option>
+                                        <option value="GENERAL">General Loan</option>
+                                        <option value="STUDENT">Student Loan</option>
+                                        <option value="VEHICLE">Vehicle Loan</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="accountId" class="form-label">Account</label>
+                                    <select class="form-select" id="accountId" name="accountId" required>
+                                        <option value="">Select Account</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Common Fields -->
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="loanAmount" class="form-label">Loan Amount</label>
+                                    <input type="number" class="form-control" id="loanAmount" name="loanAmount" min="50000" step="1000" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="interestRate" class="form-label">Interest Rate (%)</label>
+                                    <input type="number" class="form-control" id="interestRate" name="interestRate" step="0.1" readonly required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="tenureMonths" class="form-label">Tenure (Months)</label>
+                                    <input type="number" class="form-control" id="tenureMonths" name="tenureMonths" min="12" max="360" required>
+                                </div>
+                            </div>
+                            
+                            <!-- General Loan Fields -->
+                            <div id="generalLoanFields" class="loan-fields" style="display: none;">
+                                <h6 class="text-primary mb-3">General Loan Details</h6>
+                                <!-- No additional fields for general loan -->
+                            </div>
+                            
+                            <!-- Student Loan Fields -->
+                            <div id="studentLoanFields" class="loan-fields" style="display: none;">
+                                <h6 class="text-primary mb-3">Student Loan Details</h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="courseName" class="form-label">Course Name</label>
+                                        <input type="text" class="form-control" id="courseName" name="courseName">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="institutionName" class="form-label">Institution Name</label>
+                                        <input type="text" class="form-control" id="institutionName" name="institutionName">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="courseDurationYears" class="form-label">Course Duration (Years)</label>
+                                        <input type="number" class="form-control" id="courseDurationYears" name="courseDurationYears" min="1" max="10">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="courseFee" class="form-label">Course Fee</label>
+                                        <input type="number" class="form-control" id="courseFee" name="courseFee" min="0" step="100">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="academicYear" class="form-label">Academic Year</label>
+                                        <input type="text" class="form-control" id="academicYear" name="academicYear" placeholder="2024-2025">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="studentName" class="form-label">Student Name</label>
+                                        <input type="text" class="form-control" id="studentName" name="studentName">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="studentAge" class="form-label">Student Age</label>
+                                        <input type="number" class="form-control" id="studentAge" name="studentAge" min="16" max="35" readonly>
+                                        <div class="form-text">Age from your registration profile</div>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="guardianName" class="form-label">Guardian Name</label>
+                                        <input type="text" class="form-control" id="guardianName" name="guardianName">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="guardianIncome" class="form-label">Guardian Income</label>
+                                        <input type="number" class="form-control" id="guardianIncome" name="guardianIncome" min="0" step="1000">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="moratoriumPeriodMonths" class="form-label">Moratorium Period (Months)</label>
+                                        <input type="number" class="form-control" id="moratoriumPeriodMonths" name="moratoriumPeriodMonths" min="0" max="60">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="collateralProvided" name="collateralProvided">
+                                            <label class="form-check-label" for="collateralProvided">Collateral Provided</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="disbursementType" class="form-label">Disbursement Type</label>
+                                        <select class="form-select" id="disbursementType" name="disbursementType">
+<!--                                            <option value="LUMP_SUM">Lump Sum</option>-->
+<!--                                            <option value="INSTALLMENT">Installment</option>-->
+                                            <option value="LUMP_SUM">Lump Sum</option>
+                                            <option value="SEMESTER_WISE">Semester Wise</option>
+                                            <option value="YEARLY">Yearly</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="collateralDetails" class="form-label">Collateral Details</label>
+                                    <textarea class="form-control" id="collateralDetails" name="collateralDetails" rows="2"></textarea>
+                                </div>
+                            </div>
+                            
+                            <!-- Vehicle Loan Fields -->
+                            <div id="vehicleLoanFields" class="loan-fields" style="display: none;">
+                                <h6 class="text-primary mb-3">Vehicle Loan Details</h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="vehicleType" class="form-label">Vehicle Type</label>
+                                        <select class="form-select" id="vehicleType" name="vehicleType">
+                                            <option value="CAR">Car</option>
+                                            <option value="BIKE">Bike</option>
+                                            <option value="TRUCK">Truck</option>
+                                            <option value="BUS">Bus</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="vehicleMake" class="form-label">Vehicle Make</label>
+                                        <input type="text" class="form-control" id="vehicleMake" name="vehicleMake" placeholder="Toyota, Honda, etc.">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="vehicleModel" class="form-label">Vehicle Model</label>
+                                        <input type="text" class="form-control" id="vehicleModel" name="vehicleModel">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="vehicleYear" class="form-label">Vehicle Year</label>
+                                        <input type="number" class="form-control" id="vehicleYear" name="vehicleYear" min="2000" max="2025">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="vehiclePrice" class="form-label">Vehicle Price</label>
+                                        <input type="number" class="form-control" id="vehiclePrice" name="vehiclePrice" min="0" step="1000">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="downPayment" class="form-label">Down Payment</label>
+                                        <input type="number" class="form-control" id="downPayment" name="downPayment" min="0" step="1000">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="monthlyIncome" class="form-label">Monthly Income</label>
+                                        <input type="number" class="form-control" id="monthlyIncome" name="monthlyIncome" min="0" step="1000">
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="employmentType" class="form-label">Employment Type</label>
+                                        <select class="form-select" id="employmentType" name="employmentType">
+                                            <option value="SALARIED">Salaried</option>
+                                            <option value="SELF_EMPLOYED">Self Employed</option>
+                                            <option value="BUSINESS">Business</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-success" id="loanBtn">
+                                <span class="spinner-border spinner-border-sm d-none me-2" id="loanSpinner"></span>
+                                Apply for Loan
+                            </button>
+                        </form>
+                        <div id="loan-message" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loan Information -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Loan Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="loanInfo">
+                            <h6>Loan Information</h6>
+                            <p class="text-muted">Select a loan type to view details</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    <script th:src="@{/js/auth.js}"></script>
+    <script th:src="@{/js/inactivity-logout.js}"></script>
+    <script>
+        // API call function
+        async function apiCall(endpoint, options = {}) {
+            const token = localStorage.getItem('accessToken');
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                }
+            };
+            const finalOptions = { ...defaultOptions, ...options, headers: { ...defaultOptions.headers, ...options.headers } };
+            const response = await fetch('/api' + endpoint, finalOptions);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        }
+        
+        function showError(elementId, message) {
+            document.getElementById(elementId).innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>${message}</div>`;
+        }
+        
+        function showErrorPopup(message) {
+            // Simple fallback for immediate testing
+            if (typeof bootstrap === 'undefined') {
+                alert('Error: ' + message);
+                return;
+            }
+            
+            // Create modal HTML
+            const modalHtml = `
+                <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title" id="errorModalLabel">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Error
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0">${message}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if any
+            const existingModal = document.getElementById('errorModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Add modal to body
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Show modal with a slight delay to ensure DOM is ready
+            setTimeout(() => {
+                const modalElement = document.getElementById('errorModal');
+                if (modalElement && typeof bootstrap !== 'undefined') {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                } else {
+                    // Fallback to alert if Bootstrap modal is not available
+                    alert(message);
+                }
+            }, 100);
+            
+            // Remove modal from DOM after it's hidden
+            document.getElementById('errorModal').addEventListener('hidden.bs.modal', function() {
+                this.remove();
+            });
+        }
+        
+        function resetFormData() {
+            // Clear all form fields except loan type and account
+            const form = document.getElementById('loanForm');
+            const loanType = document.getElementById('loanType').value;
+            const accountId = document.getElementById('accountId').value;
+            
+            // Reset form
+            form.reset();
+            
+            // Restore loan type and account selection
+            document.getElementById('loanType').value = loanType;
+            document.getElementById('accountId').value = accountId;
+            
+            // Clear any error messages
+            document.getElementById('loan-message').innerHTML = '';
+        }
+        
+        function showSuccess(elementId, message) {
+            document.getElementById(elementId).innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>${message}</div>`;
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!localStorage.getItem('accessToken')) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            loadAccounts();
+            loadLoanConfigs();
+            loadUserProfile();
+            document.getElementById('loanForm').addEventListener('submit', handleLoanApplication);
+        });
+        
+        async function loadAccounts() {
+            try {
+                const accounts = await apiCall('/account/list');
+                const accountSelect = document.getElementById('accountId');
+                
+                const accountOptions = accounts.map(account => 
+                    `<option value="${account.id}">${account.accountNumber} - ₹${account.balance.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</option>`
+                ).join('');
+                
+                accountSelect.innerHTML = '<option value="">Select Account</option>' + accountOptions;
+            } catch (error) {
+                console.error('Failed to load accounts:', error);
+            }
+        }
+        
+        let loanConfigs = {};
+        
+        async function loadLoanConfigs() {
+            try {
+                const configs = await apiCall('/loan-config');
+                configs.forEach(config => {
+                    loanConfigs[config.loanType] = config;
+                });
+                console.log('Loaded loan configs:', loanConfigs);
+            } catch (error) {
+                console.error('Failed to load loan configs:', error);
+            }
+        }
+        
+        let userAge = null;
+        
+        async function loadUserProfile() {
+            try {
+                const userInfo = await apiCall('/auth/me');
+                if (userInfo && userInfo.dateOfBirth) {
+                    const birthDate = new Date(userInfo.dateOfBirth);
+                    const today = new Date();
+                    const age = today.getFullYear() - birthDate.getFullYear();
+                    const monthDiff = today.getMonth() - birthDate.getMonth();
+                    const dayDiff = today.getDate() - birthDate.getDate();
+                    userAge = age - (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? 1 : 0);
+                }
+            } catch (error) {
+                console.error('Failed to load user profile:', error);
+            }
+        }
+        
+        function showLoanFields() {
+            const loanType = document.getElementById('loanType').value;
+            
+            // Reset form data when loan type changes
+            resetFormData();
+            
+            // Hide all loan fields
+            document.querySelectorAll('.loan-fields').forEach(field => {
+                field.style.display = 'none';
+            });
+            
+            // Update form fields based on loan config
+            if (loanType && loanConfigs[loanType]) {
+                const config = loanConfigs[loanType];
+                
+                // Update loan amount constraints
+                const loanAmountField = document.getElementById('loanAmount');
+                loanAmountField.min = config.minPrincipal;
+                loanAmountField.max = config.maxPrincipal;
+                loanAmountField.placeholder = `₹${config.minPrincipal.toLocaleString('en-IN')} - ₹${config.maxPrincipal.toLocaleString('en-IN')}`;
+                
+                // Set fixed interest rate
+                const interestRateField = document.getElementById('interestRate');
+                interestRateField.value = config.interestRate;
+                interestRateField.readOnly = true;
+                
+                // Update tenure constraints
+                const tenureField = document.getElementById('tenureMonths');
+                tenureField.min = config.minTenureMonths;
+                tenureField.max = config.maxTenureMonths;
+                tenureField.placeholder = `${config.minTenureMonths} - ${config.maxTenureMonths} months`;
+            }
+            
+            // Show relevant fields based on loan type
+            if (loanType === 'GENERAL') {
+                document.getElementById('generalLoanFields').style.display = 'block';
+            } else if (loanType === 'STUDENT') {
+                document.getElementById('studentLoanFields').style.display = 'block';
+                makeFieldsRequired(['courseName', 'institutionName', 'studentName', 'guardianName']);
+                
+                // Auto-populate student age from user's registration data
+                if (userAge !== null) {
+                    const studentAgeField = document.getElementById('studentAge');
+                    studentAgeField.value = userAge;
+                    studentAgeField.readOnly = true;
+                }
+            } else if (loanType === 'VEHICLE') {
+                document.getElementById('vehicleLoanFields').style.display = 'block';
+                makeFieldsRequired(['vehicleMake', 'vehicleModel', 'vehiclePrice']);
+            }
+            
+            // Update loan info panel
+            updateLoanInfo(loanType);
+        }
+        
+        function updateLoanInfo(loanType) {
+            const loanInfoDiv = document.getElementById('loanInfo');
+            
+            if (!loanType || !loanConfigs[loanType]) {
+                loanInfoDiv.innerHTML = `
+                    <h6>Loan Information</h6>
+                    <p class="text-muted">Select a loan type to view details</p>
+                `;
+                return;
+            }
+            
+            const config = loanConfigs[loanType];
+            loanInfoDiv.innerHTML = `
+                <h6>${loanType} Loan Details</h6>
+                <ul class="list-unstyled">
+                    <li><strong>Interest Rate:</strong> ${config.interestRate}%</li>
+                    <li><strong>Loan Amount:</strong> ₹${config.minPrincipal.toLocaleString('en-IN')} - ₹${config.maxPrincipal.toLocaleString('en-IN')}</li>
+                    <li><strong>Tenure:</strong> ${config.minTenureMonths} - ${config.maxTenureMonths} months</li>
+                    ${config.description ? `<li><strong>Description:</strong> ${config.description}</li>` : ''}
+                </ul>
+                
+                <h6 class="mt-3">Requirements</h6>
+                <ul class="list-unstyled">
+                    <li>• Valid bank account</li>
+                    <li>• Good credit history</li>
+                    <li>• Proof of income</li>
+                </ul>
+            `;
+        }
+        
+        function makeFieldsRequired(fieldIds) {
+            // Reset all fields
+            document.querySelectorAll('.loan-fields input, .loan-fields select').forEach(field => {
+                field.removeAttribute('required');
+            });
+            
+            // Make specific fields required
+            fieldIds.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) field.setAttribute('required', 'required');
+            });
+        }
+
+        async function handleLoanApplication(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const loanType = formData.get('loanType');
+            
+            let data = {};
+            let endpoint = '';
+            
+            // Build request based on loan type
+            if (loanType === 'GENERAL') {
+                endpoint = '/loan/apply';
+                data = {
+                    accountId: parseInt(formData.get('accountId')),
+                    principal: parseFloat(formData.get('loanAmount')),
+                    type: 'PERSONAL',
+                    interestRate: parseFloat(formData.get('interestRate')),
+                    tenureMonths: parseInt(formData.get('tenureMonths'))
+                };
+            } else if (loanType === 'STUDENT') {
+                endpoint = '/student-loans/apply';
+                data = {
+                    accountId: parseInt(formData.get('accountId')),
+                    loanAmount: parseFloat(formData.get('loanAmount')),
+                    interestRate: parseFloat(formData.get('interestRate')),
+                    tenureMonths: parseInt(formData.get('tenureMonths')),
+                    courseName: formData.get('courseName'),
+                    institutionName: formData.get('institutionName'),
+                    courseDurationYears: parseInt(formData.get('courseDurationYears')) || 0,
+                    courseFee: parseFloat(formData.get('courseFee')) || 0,
+                    academicYear: formData.get('academicYear'),
+                    studentName: formData.get('studentName'),
+                    studentAge: parseInt(formData.get('studentAge')) || 0,
+                    guardianName: formData.get('guardianName'),
+                    guardianIncome: parseFloat(formData.get('guardianIncome')) || 0,
+                    collateralProvided: formData.get('collateralProvided') === 'on',
+                    collateralDetails: formData.get('collateralDetails'),
+                    moratoriumPeriodMonths: parseInt(formData.get('moratoriumPeriodMonths')) || 0,
+                    disbursementType: formData.get('disbursementType') || 'LUMP_SUM'
+                };
+            } else if (loanType === 'VEHICLE') {
+                endpoint = '/vehicle-loans/apply';
+                data = {
+                    accountId: parseInt(formData.get('accountId')),
+                    loanAmount: parseFloat(formData.get('loanAmount')),
+                    interestRate: parseFloat(formData.get('interestRate')),
+                    tenureMonths: parseInt(formData.get('tenureMonths')),
+                    vehicleType: formData.get('vehicleType'),
+                    vehicleMake: formData.get('vehicleMake'),
+                    vehicleModel: formData.get('vehicleModel'),
+                    vehicleYear: parseInt(formData.get('vehicleYear')) || 0,
+                    vehiclePrice: parseFloat(formData.get('vehiclePrice')) || 0,
+                    downPayment: parseFloat(formData.get('downPayment')) || 0,
+                    monthlyIncome: parseFloat(formData.get('monthlyIncome')) || 0,
+                    employmentType: formData.get('employmentType') || 'SALARIED'
+                };
+            }
+            
+            const btn = document.getElementById('loanBtn');
+            const spinner = document.getElementById('loanSpinner');
+            
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            try {
+                console.log('Submitting loan application:', data);
+                const result = await apiCall(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                
+                console.log('Loan application result:', result);
+                showLoanPreview(result, loanType);
+                // Don't reset form immediately to allow user to see the summary
+                // e.target.reset();
+                // showLoanFields(); // Reset form fields
+            } catch (error) {
+                console.error('Loan application error:', error);
+                showError('loan-message', error.message);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
+        
+        function showLoanPreview(loanData, loanType) {
+            const monthlyEmi = loanData.monthlyEmi || calculateEMI(loanData.loanAmount || loanData.principal, loanData.interestRate, loanData.tenureMonths);
+            
+            let previewHtml = `
+                <div class="alert alert-success">
+                    <h5><i class="fas fa-check-circle me-2"></i>${loanType} Loan Application Submitted Successfully!</h5>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Loan Details:</h6>
+                            <p><strong>Loan ID:</strong> ${loanData.id}</p>
+                            <p><strong>Amount:</strong> ₹${(loanData.loanAmount || loanData.principal).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                            <p><strong>Interest Rate:</strong> ${loanData.interestRate}%</p>
+                            <p><strong>Tenure:</strong> ${loanData.tenureMonths} months</p>
+                            <p><strong>Monthly EMI:</strong> ₹${monthlyEmi.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                            <p><strong>Status:</strong> <span class="badge bg-warning">${loanData.status}</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Additional Information:</h6>
+            `;
+            
+            if (loanType === 'STUDENT') {
+                previewHtml += `
+                    <p><strong>Course:</strong> ${loanData.courseName || 'N/A'}</p>
+                    <p><strong>Institution:</strong> ${loanData.institutionName || 'N/A'}</p>
+                    <p><strong>Student:</strong> ${loanData.studentName || 'N/A'}</p>
+                    <p><strong>Guardian:</strong> ${loanData.guardianName || 'N/A'}</p>
+                `;
+            } else if (loanType === 'VEHICLE') {
+                previewHtml += `
+                    <p><strong>Vehicle:</strong> ${loanData.vehicleMake || 'N/A'} ${loanData.vehicleModel || 'N/A'}</p>
+                    <p><strong>Year:</strong> ${loanData.vehicleYear || 'N/A'}</p>
+                    <p><strong>Type:</strong> ${loanData.vehicleType || 'N/A'}</p>
+                    <p><strong>Price:</strong> ₹${(loanData.vehiclePrice || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                `;
+            }
+            
+            previewHtml += `
+                        </div>
+                    </div>
+                    <hr>
+                    <p class="mb-0"><i class="fas fa-info-circle me-1"></i>Your loan application is under review. You will be notified once it's processed.</p>
+                    <div class="mt-3">
+                        <a href="/my-loans" class="btn btn-primary btn-sm me-2">View My Loans</a>
+                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="resetForNewApplication()">Apply for Another Loan</button>
+                        <button class="btn btn-success btn-sm" onclick="window.location.href='/dashboard'">Go to Dashboard</button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('loan-message').innerHTML = previewHtml;
+        }
+        
+        function calculateEMI(principal, rate, tenure) {
+            const monthlyRate = rate / 100 / 12;
+            const emi = (principal * monthlyRate * Math.pow(1 + monthlyRate, tenure)) / (Math.pow(1 + monthlyRate, tenure) - 1);
+            return emi;
+        }
+        
+        function resetForNewApplication() {
+            // Reset the form and clear messages
+            document.getElementById('loanForm').reset();
+            document.getElementById('loan-message').innerHTML = '';
+            
+            // Hide all loan fields
+            document.querySelectorAll('.loan-fields').forEach(field => {
+                field.style.display = 'none';
+            });
+            
+            // Reset loan info panel
+            document.getElementById('loanInfo').innerHTML = `
+                <h6>Loan Information</h6>
+                <p class="text-muted">Select a loan type to view details</p>
+            `;
+            
+            // Reload accounts in case there are new ones
+            loadAccounts();
+        }
+    </script>
+</body>
+</html>

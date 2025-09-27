@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} ?: 'Banking System'">Banking System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/style.css}" rel="stylesheet">
+</head>
+
+<body>
+<!-- Simplified Navbar -->
+<nav th:fragment="navbar" class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <!-- Brand -->
+        <a class="navbar-brand" th:href="@{/dashboard}">
+            <i class="fas fa-university me-2"></i>Banking System
+        </a>
+
+        <!-- Logout button aligned to right -->
+        <div class="d-flex ms-auto">
+            <button class="btn btn-danger" onclick="logout()">
+                <i class="fas fa-sign-out-alt me-1"></i>Logout
+            </button>
+        </div>
+    </div>
+</nav>
+
+<main th:fragment="main" class="container mt-4">
+    <!-- Content will be inserted here -->
+</main>
+
+<footer th:fragment="footer" class="bg-light text-center py-3 mt-5">
+    <div class="container">
+        <p class="mb-0">&copy; 2025 Banking System. All rights reserved.</p>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/auth.js}"></script>
+<script th:src="@{/js/api.js}"></script>
+<script th:src="@{/js/inactivity-logout.js}"></script>
+</body>
+</html>

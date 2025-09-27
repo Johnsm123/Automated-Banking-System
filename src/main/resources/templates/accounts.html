@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head}">
+    <title>Accounts - Banking System</title>
+</head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-wallet me-2"></i>My Accounts
+            </h1>
+        </div>
+    </div>
+
+    <!-- Create Account Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-plus me-2"></i>Create New Account</h5>
+                </div>
+                <div class="card-body">
+                    <form id="createAccountForm" class="row g-3">
+                        <div class="col-md-12">
+                            <label for="accountType" class="form-label">Account Type</label>
+                            <select class="form-select" id="accountType" name="accountType" required>
+                                <option value="">Select Account Type</option>
+                                <option value="SAVINGS">Savings Account</option>
+<!--                                <option value="CHECKING">Checking Account</option>-->
+<!--                                <option value="BUSINESS">Business Account</option>-->
+                            </select>
+                            <div class="form-text">New account will start with ₹0.00 balance. Use deposit option to add funds.</div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary" id="createAccountBtn">
+                                <span class="spinner-border spinner-border-sm d-none me-2" id="createSpinner"></span>
+                                Create Account
+                            </button>
+                        </div>
+                    </form>
+                    <div id="create-message" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accounts List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>My Accounts</h5>
+                    <button class="btn btn-outline-primary btn-sm" onclick="loadAccounts()">
+                        <i class="fas fa-sync-alt me-1"></i>Refresh
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="accounts-list">
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Actions Modal -->
+    <div class="modal fade" id="accountActionsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Account Actions</h5>
+                    <button type="button" class="btn-close" onclick="closeModal()"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <strong>Account:</strong> <span id="modal-account-number"></span><br>
+                        <strong>Type:</strong> <span id="modal-account-type"></span><br>
+                        <strong>Balance:</strong> <span id="modal-account-balance"></span>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <button class="btn btn-success w-100" onclick="showDepositForm()">
+                                <i class="fas fa-plus me-1"></i>Deposit
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn btn-warning w-100" onclick="showWithdrawForm()">
+                                <i class="fas fa-minus me-1"></i>Withdraw
+                            </button>
+                        </div>
+                        <div class="col-6 mt-2">
+                            <button class="btn btn-info w-100" onclick="showMiniStatement()">
+                                <i class="fas fa-file-alt me-1"></i>Mini Statement
+                            </button>
+                        </div>
+                        <div class="col-6 mt-2">
+                            <button class="btn btn-secondary w-100" onclick="showFullStatement()">
+                                <i class="fas fa-file-invoice me-1"></i>Full Statement
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Transaction Forms -->
+                    <div id="transaction-forms" class="mt-3 d-none">
+                        <form id="transactionForm">
+                            <div class="mb-3">
+                                <label for="amount" class="form-label">Amount</label>
+                                <input type="number" class="form-control" id="amount" name="amount"
+                                       min="1" step="0.01" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="description" name="description">
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="transactionBtn">
+                                <span class="spinner-border spinner-border-sm d-none me-2" id="transactionSpinner"></span>
+                                Submit
+                            </button>
+                            <button type="button" class="btn btn-secondary ms-2" onclick="hideTransactionForm()">
+                                Cancel
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Mini Statement -->
+                    <div id="mini-statement" class="mt-3 d-none">
+                        <h6>Recent Transactions (Last 5)</h6>
+                        <div id="mini-statement-content"></div>
+                    </div>
+
+                    <!-- Full Statement -->
+                    <div id="full-statement" class="mt-3 d-none">
+                        <h6>Full Statement</h6>
+                        <div class="mb-3">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">From Date</label>
+                                    <input type="date" class="form-control" id="fromDate">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">To Date</label>
+                                    <input type="date" class="form-control" id="toDate">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary mt-2" onclick="generateFullStatement()">
+                                <i class="fas fa-download me-1"></i>Generate Statement
+                            </button>
+                        </div>
+                        <div id="full-statement-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<script th:src="@{/js/auth.js}"></script>
+<script th:src="@{/js/inactivity-logout.js}"></script>
+<script>
+        let currentAccount = null;
+        let currentAction = null;
+        
+        // API call function
+        async function apiCall(endpoint, options = {}) {
+            const token = localStorage.getItem('accessToken');
+            
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                }
+            };
+            
+            const finalOptions = {
+                ...defaultOptions,
+                ...options,
+                headers: {
+                    ...defaultOptions.headers,
+                    ...options.headers
+                }
+            };
+            
+            const response = await fetch('/api' + endpoint, finalOptions);
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+            
+            // Check if response is JSON or text
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return await response.json();
+            } else {
+                return await response.text();
+            }
+        }
+
+        // Format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR'
+            }).format(amount);
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // Format datetime
+        function formatDateTime(dateString) {
+            return new Date(dateString).toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!localStorage.getItem('accessToken')) {
+                window.location.href = '/login';
+                return;
+            }
+
+            loadAccounts();
+
+            // Create account form handler
+            document.getElementById('createAccountForm').addEventListener('submit', handleCreateAccount);
+
+            // Transaction form handler
+            document.getElementById('transactionForm').addEventListener('submit', handleTransaction);
+        });
+
+        async function loadAccounts() {
+            document.getElementById('accounts-list').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            `;
+
+            try {
+                console.log('Loading accounts...');
+                const accounts = await apiCall('/account/list');
+                console.log('Accounts loaded:', accounts);
+                displayAccounts(accounts);
+            } catch (error) {
+                console.error('Failed to load accounts:', error);
+                document.getElementById('accounts-list').innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Failed to load accounts: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function displayAccounts(accounts) {
+            if (!accounts || accounts.length === 0) {
+                document.getElementById('accounts-list').innerHTML =
+                    '<div class="text-center text-muted">No accounts found. Create your first account above.</div>';
+                return;
+            }
+
+            const accountsHtml = accounts.map(account => `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="card-title mb-1">${account.accountType || 'Bank'} Account</h6>
+                                <p class="card-text mb-1">
+                                    <strong>Account Number:</strong> ${account.accountNumber}<br>
+                                    <strong>Balance:</strong> ${formatCurrency(account.balance)}<br>
+                                    <small class="text-muted">Created: ${formatDate(account.createdAt)}</small>
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-primary" onclick="openAccountActions('${account.accountNumber}', '${account.accountType}', ${account.balance})">
+                                    <i class="fas fa-cog me-1"></i>Actions
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('accounts-list').innerHTML = accountsHtml;
+        }
+
+        async function handleCreateAccount(e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const accountType = formData.get('accountType');
+
+            if (!accountType) {
+                showError('create-message', 'Please select an account type');
+                return;
+            }
+
+            const data = { accountType: accountType };
+            console.log('Creating account with data:', data);
+
+            const btn = document.getElementById('createAccountBtn');
+            const spinner = document.getElementById('createSpinner');
+
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+
+            try {
+                const response = await apiCall('/account/create', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+
+                console.log('Account creation response:', response);
+                document.getElementById('create-message').innerHTML = `
+                    <div class="alert alert-success" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Account created successfully! Account Number: ${response.accountNumber}
+                    </div>
+                `;
+                e.target.reset();
+
+                // Wait a moment then reload accounts
+                setTimeout(() => {
+                    loadAccounts();
+                }, 500);
+
+            } catch (error) {
+                console.error('Account creation error:', error);
+                document.getElementById('create-message').innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Failed to create account: ${error.message}
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
+
+        function openAccountActions(accountNumber, accountType, balance) {
+            currentAccount = { accountNumber, accountType, balance };
+
+            document.getElementById('modal-account-number').textContent = accountNumber;
+            document.getElementById('modal-account-type').textContent = accountType;
+            document.getElementById('modal-account-balance').textContent = formatCurrency(balance);
+
+            hideTransactionForm();
+            hideAllStatements();
+
+            const modal = document.getElementById('accountActionsModal');
+            modal.classList.add('show');
+            modal.style.display = 'block';
+            document.body.classList.add('modal-open');
+
+            // Add backdrop
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.id = 'modal-backdrop';
+            document.body.appendChild(backdrop);
+        }
+
+        function showDepositForm() {
+            currentAction = 'deposit';
+            document.getElementById('transaction-forms').classList.remove('d-none');
+            document.getElementById('transactionBtn').textContent = 'Deposit';
+            document.getElementById('transactionBtn').className = 'btn btn-success';
+        }
+
+        function showWithdrawForm() {
+            currentAction = 'withdraw';
+            document.getElementById('transaction-forms').classList.remove('d-none');
+            document.getElementById('transactionBtn').textContent = 'Withdraw';
+            document.getElementById('transactionBtn').className = 'btn btn-warning';
+        }
+
+        function hideTransactionForm() {
+            document.getElementById('transaction-forms').classList.add('d-none');
+            document.getElementById('transactionForm').reset();
+        }
+
+        async function handleTransaction(e) {
+            e.preventDefault();
+
+            if (!currentAccount || !currentAction) return;
+
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            data.accountNumber = currentAccount.accountNumber;
+
+            const btn = document.getElementById('transactionBtn');
+            const spinner = document.getElementById('transactionSpinner');
+
+            btn.disabled = true;
+            if (spinner) {
+                spinner.classList.remove('d-none');
+            }
+
+            try {
+                await apiCall(`/account/${currentAction}`, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+
+                alert(`${currentAction.charAt(0).toUpperCase() + currentAction.slice(1)} successful!`);
+                hideTransactionForm();
+                loadAccounts();
+                closeModal();
+            } catch (error) {
+                alert(`${currentAction} failed: ` + error.message);
+            } finally {
+                btn.disabled = false;
+                if (spinner) {
+                    spinner.classList.add('d-none');
+                }
+            }
+        }
+
+        async function showMiniStatement() {
+            if (!currentAccount) return;
+            
+            hideAllStatements();
+            document.getElementById('mini-statement').classList.remove('d-none');
+            document.getElementById('mini-statement-content').innerHTML = 
+                '<div class="text-center"><div class="spinner-border spinner-border-sm"></div></div>';
+            
+            try {
+                const statement = await apiCall(`/account/mini-statement?accountNumber=${currentAccount.accountNumber}`);
+                
+                if (!statement.last5 || statement.last5.length === 0) {
+                    document.getElementById('mini-statement-content').innerHTML = 
+                        '<p class="text-muted">No recent transactions</p>';
+                    return;
+                }
+                
+                const transactionsHtml = statement.last5.map(txn => `
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                        <div>
+                            <strong>${txn.description || txn.type}</strong><br>
+                            <small class="text-muted">${formatDateTime(txn.occurredAt || txn.timestamp)}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge ${(txn.type === 'WITHDRAW' || txn.type === 'TRANSFER_OUT') ? 'bg-danger' : 'bg-success'}">
+                                ${(txn.type === 'WITHDRAW' || txn.type === 'TRANSFER_OUT') ? '-' : '+'}${formatCurrency(Math.abs(txn.amount))}
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('mini-statement-content').innerHTML = transactionsHtml;
+            } catch (error) {
+                document.getElementById('mini-statement-content').innerHTML = 
+                    '<div class="alert alert-warning">Failed to load mini statement: ' + error.message + '</div>';
+            }
+        }
+
+        function showFullStatement() {
+            if (!currentAccount) return;
+            
+            hideAllStatements();
+            document.getElementById('full-statement').classList.remove('d-none');
+            
+            // Set default dates (last 30 days)
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+            
+            document.getElementById('toDate').value = today.toISOString().split('T')[0];
+            document.getElementById('fromDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+        }
+
+        async function generateFullStatement() {
+            if (!currentAccount) return;
+            
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            
+            if (!fromDate || !toDate) {
+                alert('Please select both from and to dates');
+                return;
+            }
+            
+            document.getElementById('full-statement-content').innerHTML = 
+                '<div class="text-center"><div class="spinner-border spinner-border-sm"></div></div>';
+            
+            try {
+                const requestData = {
+                    accountNumber: currentAccount.accountNumber,
+                    fromDate: fromDate,
+                    toDate: toDate
+                };
+                
+                const statement = await apiCall('/account/statement', {
+                    method: 'POST',
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (!statement.lines || statement.lines.length === 0) {
+                    document.getElementById('full-statement-content').innerHTML = 
+                        '<p class="text-muted">No transactions found for the selected period</p>';
+                    return;
+                }
+                
+                const statementHtml = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Statement for ${currentAccount.accountNumber}</h6>
+                            <small class="text-muted">Period: ${formatDate(fromDate)} to ${formatDate(toDate)}</small>
+                            <br><small class="text-muted">Opening Balance: ${formatCurrency(statement.openingBalance)} | Closing Balance: ${formatCurrency(statement.closingBalance)}</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Date & Time</th>
+                                            <th>Description</th>
+                                            <th>Type</th>
+                                            <th class="text-end">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${statement.lines.map(line => {
+                                            const isNegative = line.type === 'WITHDRAW' || line.type === 'TRANSFER_OUT';
+                                            const amount = Math.abs(line.amount);
+                                            return `
+                                            <tr>
+                                                <td>${formatDateTime(line.occurredAt)}</td>
+                                                <td>${line.type}${line.refAccount && line.refAccount !== '' ? ` (Ref: ${line.refAccount})` : ''}</td>
+                                                <td><span class="badge ${line.type === 'DEPOSIT' ? 'bg-success' : line.type === 'WITHDRAW' ? 'bg-danger' : line.type === 'TRANSFER_OUT' ? 'bg-warning' : 'bg-info'}">${line.type}</span></td>
+                                                <td class="text-end ${isNegative ? 'text-danger' : 'text-success'}">
+                                                    ${isNegative ? '-' : '+'}${formatCurrency(amount)}
+                                                </td>
+                                            </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('full-statement-content').innerHTML = statementHtml;
+            } catch (error) {
+                document.getElementById('full-statement-content').innerHTML = 
+                    '<div class="alert alert-warning">Failed to generate statement: ' + error.message + '</div>';
+            }
+        }
+
+        function hideAllStatements() {
+            document.getElementById('mini-statement').classList.add('d-none');
+            document.getElementById('full-statement').classList.add('d-none');
+        }
+
+        function hideMiniStatement() {
+            document.getElementById('mini-statement').classList.add('d-none');
+        }
+        
+        function closeModal() {
+            const modal = document.getElementById('accountActionsModal');
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            
+            // Remove backdrop
+            const backdrop = document.getElementById('modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+        }
+    </script>
+</body>
+</html>

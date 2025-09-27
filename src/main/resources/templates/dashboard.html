@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head}">
+    <title>Dashboard - Banking System</title>
+</head>
+<body>
+    <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    <small class="text-muted">Welcome back, <span sec:authentication="name">User</span></small>
+                </h1>
+            </div>
+        </div>
+
+        <!-- Account Summary Cards -->
+        <div class="row mb-4" id="accountSummary">
+            <!-- Account cards will be loaded here -->
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-2 mb-2">
+                                <a th:href="@{/accounts}" class="btn btn-outline-warning w-100">
+                                    <i class="fas fa-wallet me-2"></i>Accounts
+                                </a>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <a th:href="@{/transactions}" class="btn btn-outline-primary w-100">
+                                    <i class="fas fa-exchange-alt me-2"></i>Transfer
+                                </a>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <button class="btn btn-outline-success w-100" onclick="switchTab('deposit')">
+                                    <i class="fas fa-plus me-2"></i>Deposit
+                                </button>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <button class="btn btn-outline-danger w-100" onclick="switchTab('withdraw')">
+                                    <i class="fas fa-minus me-2"></i>Withdraw
+                                </button>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <a th:href="@{/loan-application}" class="btn btn-outline-info w-100">
+                                    <i class="fas fa-hand-holding-usd me-2"></i>Apply Loan
+                                </a>
+                            </div>
+                            <div class="col-md-2 mb-2">
+                                <a th:href="@{/my-loans}" class="btn btn-outline-dark w-100">
+                                    <i class="fas fa-list me-2"></i>My Loans
+                                </a>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-2 mb-2">
+                                <a th:href="@{/profile}" class="btn btn-outline-secondary w-100">
+                                    <i class="fas fa-user me-2"></i>Profile
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-list me-2"></i>Recent Transactions</h5>
+                        <a th:href="@{/transaction-history}" class="btn btn-sm btn-outline-primary">View All</a>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <select class="form-select" id="accountFilter" onchange="loadRecentTransactions()">
+                                <option value="all">All Accounts</option>
+                            </select>
+                        </div>
+                        <div id="recentTransactions">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin/Loan Officer Dashboard -->
+        <div class="row" sec:authorize="hasAnyRole('ADMIN', 'LOAN_OFFICER')">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            <span sec:authorize="hasRole('ADMIN')">Admin Dashboard</span>
+                            <span sec:authorize="hasRole('LOAN_OFFICER')">Loan Officer Dashboard</span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="adminDashboard">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    <script th:src="@{/js/api.js}"></script>
+    <script th:src="@{/js/inactivity-logout.js}"></script>
+    <script>
+        // Ensure apiCall is available
+        if (typeof apiCall === 'undefined') {
+            async function apiCall(endpoint, options = {}) {
+                const token = localStorage.getItem('accessToken');
+                const defaultOptions = {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token && { 'Authorization': `Bearer ${token}` })
+                    }
+                };
+                const finalOptions = { ...defaultOptions, ...options, headers: { ...defaultOptions.headers, ...options.headers } };
+                const response = await fetch('/api' + endpoint, finalOptions);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            }
+        }
+        
+        let refreshInterval;
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Update navbar authentication state
+            if (typeof updateNavbarAuth === 'function') {
+                updateNavbarAuth();
+            }
+            
+            // Check user role and redirect if admin
+            try {
+                const userInfo = await apiCall('/auth/me');
+                localStorage.setItem('user', JSON.stringify(userInfo));
+                
+                // Redirect admin users to admin dashboard
+                if (userInfo.role === 'ADMIN') {
+                    window.location.href = '/admin';
+                    return;
+                }
+            } catch (error) {
+                console.error('Failed to load user info:', error);
+            }
+            
+            loadUserInfo();
+            loadAccountSummary();
+            
+            // Start auto-refresh for transactions and accounts
+            startAutoRefresh();
+            
+            // Load loan officer dashboard if user has appropriate role
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                if (user.role === 'LOAN_OFFICER') {
+                    loadAdminDashboard();
+                }
+            }
+        });
+        
+        function startAutoRefresh() {
+            // Refresh every 30 seconds
+            refreshInterval = setInterval(() => {
+                loadRecentTransactions();
+                loadAccountSummary();
+            }, 30000);
+        }
+        
+        // Stop auto-refresh when page is hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                }
+            } else {
+                startAutoRefresh();
+            }
+        });
+        
+        async function loadUserInfo() {
+            try {
+                // First try to get from localStorage
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const welcomeElement = document.querySelector('h1 small');
+                    if (welcomeElement && user.name) {
+                        welcomeElement.textContent = `Welcome back, ${user.name}`;
+                        return;
+                    }
+                }
+                
+                // Fallback to API call
+                const userInfo = await apiCall('/auth/me');
+                const welcomeElement = document.querySelector('h1 small');
+                if (welcomeElement && userInfo.name) {
+                    welcomeElement.textContent = `Welcome back, ${userInfo.name}`;
+                }
+            } catch (error) {
+                console.error('Failed to load user info:', error);
+                // If API fails, redirect to login
+                if (error.status === 401) {
+                    logout();
+                }
+            }
+        }
+
+        async function loadAccountSummary() {
+            try {
+                const accounts = await apiCall('/account/list');
+                
+                if (!accounts || accounts.length === 0) {
+                    document.getElementById('accountSummary').innerHTML = `
+                        <div class="col-12">
+                            <div class="card border-primary">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-plus-circle fa-3x text-primary mb-3"></i>
+                                    <h5>Create Your First Account</h5>
+                                    <p class="text-muted">You don't have any bank accounts yet. Create your first account to start banking.</p>
+                                    <div class="row justify-content-center">
+                                        <div class="col-md-6">
+                                            <form id="quickCreateAccount" class="mb-3">
+                                                <div class="mb-3">
+                                                    <select class="form-select" id="quickAccountType" name="accountType" required>
+                                                        <option value="">Select Account Type</option>
+                                                        <option value="SAVINGS">Savings Account</option>
+                                                        <option value="CHECKING">Checking Account</option>
+                                                        <option value="BUSINESS">Business Account</option>
+                                                    </select>
+                                                </div>
+                                                <button type="submit" class="btn btn-primary" id="quickCreateBtn">
+                                                    <span class="spinner-border spinner-border-sm d-none me-2" id="quickCreateSpinner"></span>
+                                                    <i class="fas fa-plus me-1"></i>Create Account
+                                                </button>
+                                            </form>
+                                            <a href="/accounts" class="btn btn-outline-primary">
+                                                <i class="fas fa-cog me-1"></i>Advanced Options
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Add event listener for quick create form
+                    document.getElementById('quickCreateAccount').addEventListener('submit', handleQuickCreateAccount);
+                    return;
+                }
+                
+                const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
+                
+                const summaryHtml = `
+                    <div class="col-12 mb-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body text-center">
+                                <h4>Total Balance: ₹${totalBalance.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</h4>
+                                <p class="mb-0">${accounts.length} Account${accounts.length > 1 ? 's' : ''}</p>
+                            </div>
+                        </div>
+                    </div>
+                    ${accounts.map(account => `
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Bank Account</h6>
+                                    <p class="card-text">
+                                        <strong>Account #:</strong> ${account.accountNumber}<br>
+                                        <strong>Balance:</strong> ₹${account.balance.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}<br>
+                                        <strong>Status:</strong> <span class="badge bg-success">${account.status}</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+                
+                document.getElementById('accountSummary').innerHTML = summaryHtml;
+                
+                // Store accounts globally for transaction filtering
+                window.userAccounts = accounts;
+                
+                // Populate account filter dropdown
+                setTimeout(() => {
+                    const accountFilter = document.getElementById('accountFilter');
+                    if (accountFilter && accounts && accounts.length > 0) {
+                        const accountOptions = accounts.map(account => 
+                            `<option value="${account.id}">${account.accountNumber} (₹${account.balance.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})})</option>`
+                        ).join('');
+                        accountFilter.innerHTML = '<option value="all">All Accounts</option>' + accountOptions;
+                        
+                        // Reload transactions after populating dropdown
+                        loadRecentTransactions();
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Error loading accounts:', error);
+                document.getElementById('accountSummary').innerHTML = 
+                    `<div class="col-12"><div class="alert alert-warning">Unable to load account summary: ${error.message}</div></div>`;
+            }
+        }
+
+        async function loadRecentTransactions() {
+            try {
+                const accountFilter = document.getElementById('accountFilter');
+                const selectedAccountId = accountFilter ? accountFilter.value : 'all';
+                
+                 console.log('Loading transactions for account:', selectedAccountId);
+                
+                let endpoint = '/transactions/history?page=0&size=5';
+                if (selectedAccountId && selectedAccountId !== 'all') {
+                    endpoint = `/transactions/history?accountId=${selectedAccountId}&page=0&size=5`;
+                }
+                
+                 console.log('API endpoint:', endpoint);
+                const response = await apiCall(endpoint);
+                 console.log('Transaction response:', response);
+                
+                const transactions = response.data?.content || response.content || [];
+                
+                if (transactions.length === 0) {
+                    document.getElementById('recentTransactions').innerHTML = 
+                        '<p class="text-muted">No recent transactions found.</p>';
+                    return;
+                }
+                
+                const transactionsHtml = transactions.map(txn => {
+                    const date = new Date(txn.timestamp || txn.occurredAt);
+                    const timeAgo = getTimeAgo(date);
+                    const accountInfo = txn.accountNumber ? `Account: ${txn.accountNumber}` : `Account ID: ${txn.accountId}`;
+                    
+                    // Determine if amount should be positive or negative based on transaction type
+                    let isPositive = false;
+                    let displayAmount = Math.abs(txn.amount);
+                    
+                    if (txn.type === 'DEPOSIT' || txn.type === 'TRANSFER_IN') {
+                        isPositive = true;
+                    } else if (txn.type === 'WITHDRAW' || txn.type === 'TRANSFER_OUT') {
+                        isPositive = false;
+                    }
+                    
+                    const amountClass = isPositive ? 'amount-positive' : 'amount-negative';
+                    const amountSign = isPositive ? '+' : '-';
+                    
+                    return `
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-3">
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>${txn.description || txn.type}</strong>
+                                    <span class="badge ${txn.type === 'DEPOSIT' ? 'bg-success' : txn.type === 'WITHDRAW' ? 'bg-warning' : txn.type === 'TRANSFER_IN' ? 'bg-success' : 'bg-info'} ms-2">${txn.type}</span>
+                                </div>
+                                <span class="badge ${amountClass} fs-6">
+                                    ${amountSign}₹${displayAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </span>
+                            </div>
+                            <small class="text-muted">${timeAgo} • ${date.toLocaleDateString()} • ${accountInfo}</small>
+                        </div>
+                    </div>
+                `}).join('');
+                
+                document.getElementById('recentTransactions').innerHTML = transactionsHtml;
+            } catch (error) {
+                console.error('Error loading recent transactions:', error);
+                document.getElementById('recentTransactions').innerHTML = 
+                    `<p class="text-warning">Unable to load recent transactions: ${error.message}</p>`;
+            }
+        }
+
+
+
+        async function loadAdminDashboard() {
+            try {
+                const userStr = localStorage.getItem('user');
+                const user = JSON.parse(userStr);
+                
+                let endpoint = '/api/dashboard/admin-summary';
+                if (user.roles.includes('LOAN_OFFICER') && !user.roles.includes('ADMIN')) {
+                    endpoint = '/api/dashboard/loan-officer-summary';
+                }
+                
+                const response = await apiCall(endpoint);
+                const data = response.data || response;
+                
+                const dashboardHtml = `
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h4>${data.totalLoans || 0}</h4>
+                                    <p class="mb-0">Total Loans</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h4>${data.pendingLoans || 0}</h4>
+                                    <p class="mb-0">Pending Loans</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4>${data.approvedLoans || 0}</h4>
+                                    <p class="mb-0">Approved Loans</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h4>₹${(data.totalAmount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</h4>
+                                    <p class="mb-0">Total Amount</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('adminDashboard').innerHTML = dashboardHtml;
+            } catch (error) {
+                document.getElementById('adminDashboard').innerHTML = 
+                    '<div class="alert alert-warning">Unable to load dashboard statistics</div>';
+            }
+        }
+        
+        async function handleQuickCreateAccount(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            const btn = document.getElementById('quickCreateBtn');
+            const spinner = document.getElementById('quickCreateSpinner');
+            
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            try {
+                await apiCall('/account/create', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                
+                // Reload account summary
+                loadAccountSummary();
+            } catch (error) {
+                alert('Failed to create account: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
+        
+        function switchTab(tabName) {
+            // Navigate to transactions page with specific tab
+            window.location.href = '/transactions#' + tabName;
+        }
+        
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+            
+            if (diffInSeconds < 60) {
+                return 'Just now';
+            } else if (diffInSeconds < 3600) {
+                const minutes = Math.floor(diffInSeconds / 60);
+                return `${minutes} min${minutes > 1 ? 's' : ''} ago`;
+            } else if (diffInSeconds < 86400) {
+                const hours = Math.floor(diffInSeconds / 3600);
+                return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+            } else {
+                const days = Math.floor(diffInSeconds / 86400);
+                return `${days} day${days > 1 ? 's' : ''} ago`;
+            }
+        }
+        
+        // Function to manually refresh data (can be called from other pages)
+        function refreshDashboardData() {
+            loadRecentTransactions();
+            loadAccountSummary();
+        }
+        
+        // Make refresh function globally available
+        window.refreshDashboardData = refreshDashboardData;
+    </script>
+</body>
+</html>

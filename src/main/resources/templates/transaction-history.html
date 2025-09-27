@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}">
+    <title>Transaction History - Banking System</title>
+</head>
+<body>
+    <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="fas fa-history me-2"></i>Transaction History
+                </h1>
+            </div>
+        </div>
+
+        <!-- Account Selection -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <label for="accountSelect" class="form-label">Select Account</label>
+                        <select class="form-select" id="accountSelect" onchange="onAccountChange()">
+                            <option value="">Loading accounts...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction History -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-list me-2"></i>Transaction History</h5>
+                        <button class="btn btn-outline-primary btn-sm" onclick="loadTransactions()">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="transactions-list">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Pagination -->
+                        <nav id="pagination" class="mt-3 d-none">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item" id="prev-page">
+                                    <a class="page-link" href="#" onclick="loadTransactions(currentPage - 1)">Previous</a>
+                                </li>
+                                <li class="page-item active">
+                                    <span class="page-link" id="current-page">1</span>
+                                </li>
+                                <li class="page-item" id="next-page">
+                                    <a class="page-link" href="#" onclick="loadTransactions(currentPage + 1)">Next</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    <script th:src="@{/js/auth.js}"></script>
+    <script th:src="@{/js/inactivity-logout.js}"></script>
+    <script>
+        let currentPage = 0;
+        const pageSize = 10;
+        let selectedAccountId = null;
+        let userAccounts = [];
+
+        // API call function
+        async function apiCall(endpoint, options = {}) {
+            const token = localStorage.getItem('accessToken');
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                }
+            };
+            const finalOptions = { ...defaultOptions, ...options, headers: { ...defaultOptions.headers, ...options.headers } };
+            const response = await fetch('/api' + endpoint, finalOptions);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+        }
+        
+        function formatDateTime(dateString) {
+            if (!dateString) return 'Unknown Date';
+            
+            try {
+                let date;
+                
+                // Handle different date formats
+                if (typeof dateString === 'string') {
+                    // Handle ISO string or epoch timestamp
+                    if (dateString.includes('T') || dateString.includes('-')) {
+                        date = new Date(dateString);
+                    } else {
+                        // Try parsing as timestamp
+                        const timestamp = parseInt(dateString);
+                        date = new Date(timestamp);
+                    }
+                } else if (typeof dateString === 'number') {
+                    // Handle epoch timestamp
+                    date = new Date(dateString);
+                } else {
+                    date = new Date(dateString);
+                }
+                
+                if (isNaN(date.getTime())) {
+                    return 'Invalid Date';
+                }
+                
+                return date.toLocaleString('en-US', {
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } catch (error) {
+                console.error('Date formatting error:', error, 'Input:', dateString);
+                return 'Invalid Date';
+            }
+        }
+        
+        function getAmountDisplay(transactionType, amount) {
+            const type = (transactionType || '').toUpperCase();
+            
+            switch (type) {
+                case 'DEPOSIT':
+                case 'TRANSFER_IN':
+                    return { color: 'text-success', sign: '+' };
+                case 'WITHDRAW':
+                case 'WITHDRAWAL':
+                case 'TRANSFER_OUT':
+                case 'TRANSFER':
+                    return { color: 'text-danger', sign: '-' };
+                default:
+                    // Fallback to amount-based logic
+                    return amount >= 0 
+                        ? { color: 'text-success', sign: '+' }
+                        : { color: 'text-danger', sign: '-' };
+            }
+        }
+        
+        function showLoading(elementId) {
+            document.getElementById(elementId).innerHTML = '<div class="text-center"><div class="spinner-border"></div></div>';
+        }
+        
+        function showError(elementId, message) {
+            document.getElementById(elementId).innerHTML = `<div class="alert alert-danger">${message}</div>`;
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!localStorage.getItem('accessToken')) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            loadAccounts();
+        });
+        
+        async function loadAccounts() {
+            try {
+                const accounts = await apiCall('/account/list');
+                userAccounts = accounts;
+                
+                if (!accounts || accounts.length === 0) {
+                    document.getElementById('accountSelect').innerHTML = '<option value="">No accounts found</option>';
+                    document.getElementById('transactions-list').innerHTML = '<div class="alert alert-info">No accounts available. Create an account first.</div>';
+                    return;
+                }
+                
+                const accountOptions = accounts.map(account => 
+                    `<option value="${account.id}">${account.accountNumber} - ${account.accountType} ($${account.balance.toFixed(2)})</option>`
+                ).join('');
+                
+                document.getElementById('accountSelect').innerHTML = '<option value="all">All Accounts</option><option value="">Select an account</option>' + accountOptions;
+                
+                // Auto-select all accounts
+                selectedAccountId = 'all';
+                document.getElementById('accountSelect').value = 'all';
+                loadTransactions();
+            } catch (error) {
+                showError('transactions-list', 'Failed to load accounts: ' + error.message);
+            }
+        }
+        
+        function onAccountChange() {
+            const select = document.getElementById('accountSelect');
+            selectedAccountId = select.value;
+            
+            if (selectedAccountId) {
+                currentPage = 0;
+                loadTransactions();
+            } else {
+                document.getElementById('transactions-list').innerHTML = '<div class="text-muted text-center">Please select an account to view transactions</div>';
+                document.getElementById('pagination').classList.add('d-none');
+            }
+        }
+
+        async function loadTransactions(page = 0) {
+            if (!selectedAccountId) {
+                document.getElementById('transactions-list').innerHTML = '<div class="text-muted text-center">Please select an account to view transactions</div>';
+                return;
+            }
+            
+            currentPage = page;
+            showLoading('transactions-list');
+            
+            try {
+                let endpoint;
+                if (selectedAccountId === 'all') {
+                    endpoint = `/transactions/history?page=${page}&size=${pageSize}`;
+                } else {
+                    endpoint = `/transactions/history?accountId=${selectedAccountId}&page=${page}&size=${pageSize}`;
+                }
+                
+                const response = await apiCall(endpoint);
+                const transactions = response.content || [];
+                const totalPages = response.totalPages || 1;
+                
+                displayTransactions(transactions);
+                updatePagination(page, totalPages);
+            } catch (error) {
+                showError('transactions-list', 'Failed to load transaction history: ' + error.message);
+            }
+        }
+
+        function displayTransactions(transactions) {
+            if (!transactions || transactions.length === 0) {
+                document.getElementById('transactions-list').innerHTML = 
+                    '<div class="text-center text-muted">No transactions found</div>';
+                return;
+            }
+
+            const transactionsHtml = transactions.map(txn => {
+                const transactionDate = txn.timestamp || txn.occurredAt || txn.createdAt || txn.transactionDate || txn.date;
+                const formattedDate = formatDateTime(transactionDate);
+                const { color, sign } = getAmountDisplay(txn.type, txn.amount);
+                
+                // Get account info - either from transaction or find in userAccounts
+                let accountDisplay = 'Unknown Account';
+                if (txn.accountNumber) {
+                    accountDisplay = txn.accountNumber;
+                } else if (txn.accountId) {
+                    const account = userAccounts.find(acc => acc.id == txn.accountId);
+                    accountDisplay = account ? account.accountNumber : `Account ID: ${txn.accountId}`;
+                }
+                
+                return `
+                <div class="card mb-2">
+                    <div class="card-body py-2">
+                        <div class="row align-items-center">
+                            <div class="col-md-2">
+                                <span class="badge ${getTransactionBadgeClass(txn.type)}">
+                                    ${txn.type || 'TRANSACTION'}
+                                </span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>${txn.description || txn.type || 'Transaction'}</strong><br>
+                                <small class="text-muted">Account: ${accountDisplay}</small>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">${formattedDate}</small>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <span class="h6 ${color}">
+                                    ${sign}${formatCurrency(Math.abs(txn.amount))}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+
+            document.getElementById('transactions-list').innerHTML = transactionsHtml;
+        }
+
+        function getTransactionBadgeClass(type) {
+            switch(type) {
+                case 'DEPOSIT': return 'bg-success';
+                case 'WITHDRAW': return 'bg-warning';
+                case 'TRANSFER_IN': return 'bg-info';
+                case 'TRANSFER_OUT': return 'bg-secondary';
+                default: return 'bg-primary';
+            }
+        }
+
+        function updatePagination(page, totalPages) {
+            if (totalPages <= 1) {
+                document.getElementById('pagination').classList.add('d-none');
+                return;
+            }
+
+            document.getElementById('pagination').classList.remove('d-none');
+            document.getElementById('current-page').textContent = page + 1;
+            
+            const prevBtn = document.getElementById('prev-page');
+            const nextBtn = document.getElementById('next-page');
+            
+            if (page === 0) {
+                prevBtn.classList.add('disabled');
+            } else {
+                prevBtn.classList.remove('disabled');
+            }
+            
+            if (page >= totalPages - 1) {
+                nextBtn.classList.add('disabled');
+            } else {
+                nextBtn.classList.remove('disabled');
+            }
+        }
+    </script>
+</body>
+</html>

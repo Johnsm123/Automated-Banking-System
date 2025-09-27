@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}">
+    <title>My Loans - Banking System</title>
+</head>
+<body>
+    <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="fas fa-list me-2"></i>My Loans
+                </h1>
+            </div>
+        </div>
+
+        <!-- Loans List -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-hand-holding-usd me-2"></i>All Applied Loans</h5>
+                            <a th:href="@{/loan-application}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus me-1"></i>Apply New Loan
+                            </a>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <label class="me-2"><strong>Filter by Type:</strong></label>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary btn-sm active" onclick="filterLoans('ALL')" id="filter-ALL">
+                                    <i class="fas fa-list me-1"></i>All
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="filterLoans('GENERAL')" id="filter-GENERAL">
+                                    <i class="fas fa-user me-1"></i>General
+                                </button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="filterLoans('STUDENT')" id="filter-STUDENT">
+                                    <i class="fas fa-graduation-cap me-1"></i>Student
+                                </button>
+                                <button type="button" class="btn btn-outline-warning btn-sm" onclick="filterLoans('VEHICLE')" id="filter-VEHICLE">
+                                    <i class="fas fa-car me-1"></i>Vehicle
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="loans-list">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loan Details Modal -->
+    <div class="modal fade" id="loanDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Loan Details</h5>
+                    <button type="button" class="btn-close" onclick="closeModal()"></button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    <script th:src="@{/js/auth.js}"></script>
+    <script th:src="@{/js/inactivity-logout.js}"></script>
+    <script>
+        // API call function
+        async function apiCall(endpoint, options = {}) {
+            const token = localStorage.getItem('accessToken');
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                }
+            };
+            const finalOptions = { ...defaultOptions, ...options, headers: { ...defaultOptions.headers, ...options.headers } };
+            const response = await fetch('/api' + endpoint, finalOptions);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+            
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return await response.json();
+            } else {
+                return {};
+            }
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+        }
+        
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+        
+        function getStatusBadge(status) {
+            const statusClasses = {
+                'PENDING': 'bg-warning',
+                'APPROVED': 'bg-success',
+                'REJECTED': 'bg-danger',
+                'ACTIVE': 'bg-info',
+                'CLOSED': 'bg-secondary'
+            };
+            return `<span class="badge ${statusClasses[status] || 'bg-secondary'}">${status}</span>`;
+        }
+        
+        let allLoansData = [];
+        let currentFilter = 'ALL';
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!localStorage.getItem('accessToken')) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            loadMyLoans();
+        });
+
+        async function loadMyLoans() {
+            try {
+                // Load all loan types
+                const [generalLoans, studentLoans, vehicleLoans] = await Promise.all([
+                    apiCall('/loan/my-loans').catch(() => []),
+                    apiCall('/student-loans/my-loans').catch(() => []),
+                    apiCall('/vehicle-loans/my-loans').catch(() => [])
+                ]);
+                
+                const allLoans = [
+                    ...generalLoans.map(loan => ({ ...loan, loanType: 'GENERAL' })),
+                    ...studentLoans.map(loan => ({ ...loan, loanType: 'STUDENT' })),
+                    ...vehicleLoans.map(loan => ({ ...loan, loanType: 'VEHICLE' }))
+                ];
+                
+                allLoansData = allLoans;
+                displayLoans(allLoansData);
+            } catch (error) {
+                console.error('Failed to load loans:', error);
+                document.getElementById('loans-list').innerHTML = 
+                    '<div class="alert alert-danger">Failed to load loans. Please try again.</div>';
+            }
+        }
+        
+        function displayLoans(loans) {
+            const loansContainer = document.getElementById('loans-list');
+            
+            if (loans.length === 0) {
+                const message = currentFilter === 'ALL' ? 
+                    'You haven\'t applied for any loans yet.' : 
+                    `No ${currentFilter.toLowerCase()} loans found.`;
+                    
+                loansContainer.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-hand-holding-usd fa-3x text-muted mb-3"></i>
+                        <h5>No Loans ${currentFilter === 'ALL' ? 'Applied' : 'Found'}</h5>
+                        <p class="text-muted">${message}</p>
+                        ${currentFilter === 'ALL' ? 
+                            '<a href="/loan-application" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Apply for Your First Loan</a>' : 
+                            '<button class="btn btn-outline-secondary" onclick="filterLoans(\'ALL\')"><i class="fas fa-list me-1"></i>Show All Loans</button>'
+                        }
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sort loans by creation date (newest first)
+            loans.sort((a, b) => new Date(b.applicationDate || b.createdAt) - new Date(a.applicationDate || a.createdAt));
+            
+            const loansHtml = loans.map(loan => {
+                const loanAmount = loan.loanAmount || loan.principal;
+                const applicationDate = loan.applicationDate || loan.createdAt;
+                
+                return `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-2">
+                                    <h6 class="mb-1">${loan.loanType} Loan</h6>
+                                    <small class="text-muted">ID: ${loan.id}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <strong>${formatCurrency(loanAmount)}</strong>
+                                    <br><small class="text-muted">${loan.interestRate}% interest</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <span>${loan.tenureMonths} months</span>
+                                    <br><small class="text-muted">EMI: ${formatCurrency(loan.monthlyEmi || 0)}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    ${getStatusBadge(loan.status)}
+                                    <br><small class="text-muted">${formatDate(applicationDate)}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    ${loan.outstandingAmount ? 
+                                        `<span class="text-success">Outstanding: ${formatCurrency(loan.outstandingAmount)}</span>` : 
+                                        '<span class="text-muted">-</span>'
+                                    }
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <div class="btn-group-vertical" role="group">
+                                        <button class="btn btn-outline-primary btn-sm mb-1" onclick="viewLoanDetails(${loan.id}, '${loan.loanType}')">
+                                            <i class="fas fa-eye me-1"></i>Details
+                                        </button>
+                                        ${(loan.status === 'ACTIVE' || loan.status === 'APPROVED') ? `
+                                            <button class="btn btn-outline-info btn-sm mb-1" onclick="viewInstallments(${loan.id}, '${loan.loanType}')">
+                                                <i class="fas fa-calendar-alt me-1"></i>Installments
+                                            </button>
+                                            <button class="btn btn-outline-success btn-sm mb-1" onclick="payInstallment(${loan.id}, '${loan.loanType}')">
+                                                <i class="fas fa-credit-card me-1"></i>Pay EMI
+                                            </button>
+                                            <button class="btn btn-outline-warning btn-sm mb-1" onclick="renewLoan(${loan.id}, '${loan.loanType}')">
+                                                <i class="fas fa-redo me-1"></i>Renew
+                                            </button>
+                                            <button class="btn btn-outline-danger btn-sm" onclick="closeLoan(${loan.id}, '${loan.loanType}')">
+                                                <i class="fas fa-times me-1"></i>Close
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            loansContainer.innerHTML = loansHtml;
+        }
+        
+        function filterLoans(filterType) {
+            currentFilter = filterType;
+            
+            // Update button states
+            document.querySelectorAll('.btn-group button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`filter-${filterType}`).classList.add('active');
+            
+            // Filter loans based on type
+            let filteredLoans = allLoansData;
+            if (filterType !== 'ALL') {
+                filteredLoans = allLoansData.filter(loan => loan.loanType === filterType);
+            }
+            
+            // Display filtered loans
+            displayLoans(filteredLoans);
+        }
+        
+        async function viewLoanDetails(loanId, loanType) {
+            // Show modal manually
+            const modal = document.getElementById('loanDetailsModal');
+            modal.classList.add('show');
+            modal.style.display = 'block';
+            document.body.classList.add('modal-open');
+            
+            // Add backdrop
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.id = 'modal-backdrop';
+            document.body.appendChild(backdrop);
+            
+            // Set modal title
+            document.getElementById('modalTitle').textContent = `${loanType} Loan Details - ID: ${loanId}`;
+            
+            // Show loading
+            document.getElementById('modalBody').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            `;
+            
+            try {
+                // Get API endpoint based on loan type
+                let endpoint = '';
+                switch(loanType) {
+                    case 'GENERAL':
+                        endpoint = `/loan/${loanId}`;
+                        break;
+                    case 'STUDENT':
+                        endpoint = `/student-loans/${loanId}`;
+                        break;
+                    case 'VEHICLE':
+                        endpoint = `/vehicle-loans/${loanId}`;
+                        break;
+                }
+                
+                // Fetch loan details
+                const loanDetails = await apiCall(endpoint);
+                displayLoanDetailsModal(loanDetails, loanType);
+                
+            } catch (error) {
+                console.error('Failed to load loan details:', error);
+                document.getElementById('modalBody').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Failed to load loan details. Please try again.
+                    </div>
+                `;
+            }
+        }
+        
+        function displayLoanDetailsModal(loan, loanType) {
+            const loanAmount = loan.loanAmount || loan.principal;
+            const applicationDate = loan.applicationDate || loan.createdAt;
+            
+            let detailsHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">Basic Information</h6>
+                        <table class="table table-borderless">
+                            <tr><td><strong>Loan ID:</strong></td><td>${loan.id}</td></tr>
+                            <tr><td><strong>Loan Type:</strong></td><td><span class="badge bg-info">${loanType}</span></td></tr>
+                            ${loan.accountNumber ? `<tr><td><strong>Account:</strong></td><td>${loan.accountNumber}</td></tr>` : ''}
+                            <tr><td><strong>Amount:</strong></td><td>${formatCurrency(loanAmount)}</td></tr>
+                            <tr><td><strong>Interest Rate:</strong></td><td>${loan.interestRate}%</td></tr>
+                            <tr><td><strong>Tenure:</strong></td><td>${loan.tenureMonths} months</td></tr>
+                            <tr><td><strong>Monthly EMI:</strong></td><td>${formatCurrency(loan.monthlyEmi || 0)}</td></tr>
+                            <tr><td><strong>Status:</strong></td><td>${getStatusBadge(loan.status)}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">Timeline</h6>
+                        <table class="table table-borderless">
+                            <tr><td><strong>Applied On:</strong></td><td>${formatDate(applicationDate)}</td></tr>
+                            ${loan.approvalDate ? `<tr><td><strong>Approved On:</strong></td><td>${formatDate(loan.approvalDate)}</td></tr>` : ''}
+                            ${loan.disbursementDate ? `<tr><td><strong>Disbursed On:</strong></td><td>${formatDate(loan.disbursementDate)}</td></tr>` : ''}
+                            ${loan.emiStartDate ? `<tr><td><strong>EMI Start Date:</strong></td><td>${formatDate(loan.emiStartDate)}</td></tr>` : ''}
+                            ${loan.outstandingAmount ? `<tr><td><strong>Outstanding:</strong></td><td class="text-success">${formatCurrency(loan.outstandingAmount)}</td></tr>` : ''}
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            // Add loan-specific details
+            if (loanType === 'STUDENT') {
+                detailsHtml += `
+                    <hr>
+                    <h6 class="text-primary mb-3">Student Loan Details</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                ${loan.courseName ? `<tr><td><strong>Course:</strong></td><td>${loan.courseName}</td></tr>` : ''}
+                                ${loan.institutionName ? `<tr><td><strong>Institution:</strong></td><td>${loan.institutionName}</td></tr>` : ''}
+                                ${loan.courseDurationYears ? `<tr><td><strong>Duration:</strong></td><td>${loan.courseDurationYears} years</td></tr>` : ''}
+                                ${loan.courseFee ? `<tr><td><strong>Course Fee:</strong></td><td>${formatCurrency(loan.courseFee)}</td></tr>` : ''}
+                                ${loan.academicYear ? `<tr><td><strong>Academic Year:</strong></td><td>${loan.academicYear}</td></tr>` : ''}
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                ${loan.studentName ? `<tr><td><strong>Student:</strong></td><td>${loan.studentName}</td></tr>` : ''}
+                                ${loan.studentAge ? `<tr><td><strong>Age:</strong></td><td>${loan.studentAge} years</td></tr>` : ''}
+                                ${loan.guardianName ? `<tr><td><strong>Guardian:</strong></td><td>${loan.guardianName}</td></tr>` : ''}
+                                ${loan.guardianIncome ? `<tr><td><strong>Guardian Income:</strong></td><td>${formatCurrency(loan.guardianIncome)}</td></tr>` : ''}
+                                ${loan.moratoriumPeriodMonths ? `<tr><td><strong>Moratorium:</strong></td><td>${loan.moratoriumPeriodMonths} months</td></tr>` : ''}
+                            </table>
+                        </div>
+                    </div>
+                    ${loan.collateralDetails ? `<p><strong>Collateral Details:</strong> ${loan.collateralDetails}</p>` : ''}
+                `;
+            } else if (loanType === 'VEHICLE') {
+                detailsHtml += `
+                    <hr>
+                    <h6 class="text-primary mb-3">Vehicle Loan Details</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                ${loan.vehicleType ? `<tr><td><strong>Vehicle Type:</strong></td><td>${loan.vehicleType}</td></tr>` : ''}
+                                ${loan.vehicleMake ? `<tr><td><strong>Make:</strong></td><td>${loan.vehicleMake}</td></tr>` : ''}
+                                ${loan.vehicleModel ? `<tr><td><strong>Model:</strong></td><td>${loan.vehicleModel}</td></tr>` : ''}
+                                ${loan.vehicleYear ? `<tr><td><strong>Year:</strong></td><td>${loan.vehicleYear}</td></tr>` : ''}
+                                ${loan.vehiclePrice ? `<tr><td><strong>Vehicle Price:</strong></td><td>${formatCurrency(loan.vehiclePrice)}</td></tr>` : ''}
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                ${loan.downPayment ? `<tr><td><strong>Down Payment:</strong></td><td>${formatCurrency(loan.downPayment)}</td></tr>` : ''}
+                                ${loan.monthlyIncome ? `<tr><td><strong>Monthly Income:</strong></td><td>${formatCurrency(loan.monthlyIncome)}</td></tr>` : ''}
+                                ${loan.employmentType ? `<tr><td><strong>Employment:</strong></td><td>${loan.employmentType}</td></tr>` : ''}
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Add rejection reason if applicable
+            if (loan.rejectionReason) {
+                detailsHtml += `
+                    <hr>
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-times-circle me-2"></i>Rejection Reason</h6>
+                        <p class="mb-0">${loan.rejectionReason}</p>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('modalBody').innerHTML = detailsHtml;
+        }
+        
+        function closeModal() {
+            const modal = document.getElementById('loanDetailsModal');
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            
+            // Remove backdrop
+            const backdrop = document.getElementById('modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+        }
+        
+        // Close modal when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'modal-backdrop') {
+                closeModal();
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('loanDetailsModal');
+                if (modal.classList.contains('show')) {
+                    closeModal();
+                }
+            }
+        });
+        
+        async function viewInstallments(loanId, loanType) {
+            const modal = document.getElementById('loanDetailsModal');
+            modal.classList.add('show');
+            modal.style.display = 'block';
+            document.body.classList.add('modal-open');
+            
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.id = 'modal-backdrop';
+            document.body.appendChild(backdrop);
+            
+            document.getElementById('modalTitle').textContent = `Installments - ${loanType} Loan ID: ${loanId}`;
+            document.getElementById('modalBody').innerHTML = '<div class="text-center"><div class="spinner-border"></div></div>';
+            
+            try {
+                let endpoint = '';
+                switch(loanType) {
+                    case 'GENERAL': endpoint = `/loan/${loanId}/installments`; break;
+                    case 'STUDENT': endpoint = `/student-loans/${loanId}/installments`; break;
+                    case 'VEHICLE': endpoint = `/vehicle-loans/${loanId}/installments`; break;
+                }
+                
+                const installments = await apiCall(endpoint);
+                displayInstallments(installments);
+            } catch (error) {
+                document.getElementById('modalBody').innerHTML = '<div class="alert alert-danger">Failed to load installments</div>';
+            }
+        }
+        
+        function displayInstallments(installments) {
+            if (!installments || installments.length === 0) {
+                document.getElementById('modalBody').innerHTML = '<div class="alert alert-info">No installments found</div>';
+                return;
+            }
+            
+            const installmentsHtml = `
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Installment #</th>
+                                <th>Due Date</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Paid Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${installments.map(inst => `
+                                <tr>
+                                    <td>${inst.installmentNumber}</td>
+                                    <td>${formatDate(inst.dueDate)}</td>
+                                    <td>${formatCurrency(inst.amount)}</td>
+                                    <td><span class="badge ${inst.status === 'PAID' ? 'bg-success' : inst.status === 'OVERDUE' ? 'bg-danger' : 'bg-warning'}">${inst.status}</span></td>
+                                    <td>${inst.paidDate ? formatDate(inst.paidDate) : '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            document.getElementById('modalBody').innerHTML = installmentsHtml;
+        }
+        
+        async function payInstallment(loanId, loanType) {
+            const amount = prompt('Enter installment amount to pay:');
+            if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+                alert('Please enter a valid amount');
+                return;
+            }
+            
+            try {
+                let endpoint = '';
+                switch(loanType) {
+                    case 'GENERAL': endpoint = `/loan/${loanId}/pay-installment`; break;
+                    case 'STUDENT': endpoint = `/student-loans/${loanId}/pay-installment`; break;
+                    case 'VEHICLE': endpoint = `/vehicle-loans/${loanId}/pay-installment`; break;
+                }
+                
+                await apiCall(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify({ amount: parseFloat(amount) })
+                });
+                
+                alert('Installment paid successfully!');
+                loadMyLoans(); // Reload loans
+            } catch (error) {
+                alert('Failed to pay installment: ' + error.message);
+            }
+        }
+        
+        async function renewLoan(loanId, loanType) {
+            const additionalAmount = prompt('Enter additional loan amount (optional):');
+            const newTenure = prompt('Enter new tenure in months:');
+            
+            if (!newTenure || isNaN(newTenure) || parseInt(newTenure) <= 0) {
+                alert('Please enter a valid tenure');
+                return;
+            }
+            
+            try {
+                let endpoint = '';
+                const requestBody = {
+                    newTenure: parseInt(newTenure),
+                    additionalAmount: additionalAmount ? parseFloat(additionalAmount) : 0
+                };
+                
+                switch(loanType) {
+                    case 'GENERAL': endpoint = `/loan/${loanId}/renew`; break;
+                    case 'STUDENT': endpoint = `/student-loans/${loanId}/renew`; break;
+                    case 'VEHICLE': endpoint = `/vehicle-loans/${loanId}/renew`; break;
+                }
+                
+                await apiCall(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify(requestBody)
+                });
+                
+                alert('Loan renewed successfully!');
+                loadMyLoans(); // Reload loans
+            } catch (error) {
+                alert('Failed to renew loan: ' + error.message);
+            }
+        }
+        
+        async function closeLoan(loanId, loanType) {
+            if (!confirm('Are you sure you want to close this loan? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                let endpoint = '';
+                switch(loanType) {
+                    case 'GENERAL': endpoint = `/loan/${loanId}/close`; break;
+                    case 'STUDENT': endpoint = `/student-loans/${loanId}/close`; break;
+                    case 'VEHICLE': endpoint = `/vehicle-loans/${loanId}/close`; break;
+                }
+                
+                await apiCall(endpoint, {
+                    method: 'POST'
+                });
+                
+                alert('Loan closed successfully!');
+                loadMyLoans(); // Reload loans
+            } catch (error) {
+                alert('Failed to close loan: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}">
+    <title>Admin Dashboard - Banking System</title>
+</head>
+<body>
+    <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="fas fa-cog me-2"></i>Admin Dashboard
+                </h1>
+            </div>
+        </div>
+
+        <!-- Admin Statistics Cards -->
+        <div class="row mb-4" id="adminStats">
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Management Tabs -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs">
+                            <li class="nav-item">
+                                <button class="nav-link active" onclick="switchTab('loans')" id="loans-tab">
+                                    <i class="fas fa-hand-holding-usd me-1"></i>Loan Management
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" onclick="switchTab('analytics')" id="analytics-tab">
+                                    <i class="fas fa-chart-bar me-1"></i>Loan Analytics
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" onclick="switchTab('portfolio')" id="portfolio-tab">
+                                    <i class="fas fa-briefcase me-1"></i>Portfolio Summary
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <!-- Loan Management Tab -->
+                        <div id="loans-content" class="tab-content">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5>System-wide Loan Applications <small class="text-muted">(All Customers)</small></h5>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label"><strong>Filter by Status:</strong></label>
+                                        <div class="btn-group w-100" role="group">
+                                            <button class="btn btn-outline-secondary btn-sm active" onclick="filterByStatus('ALL')" id="status-ALL">All</button>
+                                            <button class="btn btn-outline-warning btn-sm" onclick="filterByStatus('PENDING')" id="status-PENDING">Pending</button>
+                                            <button class="btn btn-outline-success btn-sm" onclick="filterByStatus('APPROVED')" id="status-APPROVED">Approved</button>
+                                            <button class="btn btn-outline-danger btn-sm" onclick="filterByStatus('REJECTED')" id="status-REJECTED">Rejected</button>
+                                            <button class="btn btn-outline-info btn-sm" onclick="filterByStatus('ACTIVE')" id="status-ACTIVE">Active</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label"><strong>Filter by Type:</strong></label>
+                                        <div class="btn-group w-100" role="group">
+                                            <button class="btn btn-outline-secondary btn-sm active" onclick="filterByType('ALL')" id="type-ALL">All Types</button>
+                                            <button class="btn btn-outline-primary btn-sm" onclick="filterByType('GENERAL')" id="type-GENERAL">General</button>
+                                            <button class="btn btn-outline-success btn-sm" onclick="filterByType('STUDENT')" id="type-STUDENT">Student</button>
+                                            <button class="btn btn-outline-warning btn-sm" onclick="filterByType('VEHICLE')" id="type-VEHICLE">Vehicle</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="loans-list">Loading...</div>
+                        </div>
+
+                        <!-- Analytics Tab -->
+                        <div id="analytics-content" class="tab-content" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Loan Analytics</h6>
+                                        </div>
+                                        <div class="card-body" id="analytics-data">
+                                            Loading...
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6>Performance Metrics</h6>
+                                        </div>
+                                        <div class="card-body" id="performance-metrics">
+                                            Loading...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Portfolio Tab -->
+                        <div id="portfolio-content" class="tab-content" style="display: none;">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6>Portfolio Summary</h6>
+                                </div>
+                                <div class="card-body" id="portfolio-data">
+                                    Loading...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loan Details Modal -->
+    <div class="modal fade" id="loanModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Loan Details</h5>
+                    <button type="button" class="btn-close" onclick="closeModal()"></button>
+                </div>
+                <div class="modal-body" id="loanModalBody">
+                    Loading...
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    <script th:src="@{/js/inactivity-logout.js}"></script>
+    <script>
+        let currentTab = 'loans';
+        let currentStatusFilter = 'ALL';
+        let currentTypeFilter = 'ALL';
+        let allLoansData = [];
+
+        async function adminApiCall(endpoint, options = {}) {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+            
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            };
+            const finalOptions = { ...defaultOptions, ...options, headers: { ...defaultOptions.headers, ...options.headers } };
+            
+            const response = await fetch('/api' + endpoint, finalOptions);
+            
+            if (response.status === 401) {
+                // Use the global logout function from auth.js
+                if (typeof logout === 'function') {
+                    logout();
+                } else {
+                    localStorage.clear();
+                    window.location.href = '/login';
+                }
+                throw new Error('Authentication failed');
+            }
+            
+            if (!response.ok) {
+                let errorMessage = `HTTP error! status: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorData.error || errorMessage;
+                } catch (e) {
+                    // If response is not JSON, try to get text
+                    try {
+                        const textError = await response.text();
+                        errorMessage = textError || response.statusText || errorMessage;
+                    } catch (textError) {
+                        errorMessage = response.statusText || errorMessage;
+                    }
+                }
+                console.error('API Error Details:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    message: errorMessage
+                });
+                throw new Error(errorMessage);
+            }
+            
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return await response.json();
+            } else {
+                return await response.text();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            try {
+                const userInfo = await adminApiCall('/auth/me');
+                console.log('Current user info:', userInfo);
+                if (userInfo.role !== 'ADMIN') {
+                    alert('Access denied: Admin privileges required');
+                    window.location.href = '/dashboard';
+                    return;
+                }
+            } catch (error) {
+                console.error('Authentication failed:', error);
+                localStorage.clear();
+                window.location.href = '/login';
+                return;
+            }
+            
+            loadAdminStats();
+            loadTabContent();
+        });
+
+        async function loadAdminStats() {
+            try {
+                const adminData = await adminApiCall('/dashboard/admin-summary');
+                
+                document.getElementById('adminStats').innerHTML = `
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body text-center">
+                                <h4>${adminData.totalCustomers || 0}</h4>
+                                <p class="mb-0">Total Customers</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h4>${adminData.totalAccounts || 0}</h4>
+                                <p class="mb-0">Bank Accounts</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h4>${((adminData.totalVehicleLoans || 0) + (adminData.totalStudentLoans || 0) + (adminData.totalGeneralLoans || 0))}</h4>
+                                <p class="mb-0">Total Loans</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h4>₹${(adminData.totalLoanPortfolio || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</h4>
+                                <p class="mb-0">Loan Portfolio</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Failed to load admin stats:', error);
+                document.getElementById('adminStats').innerHTML = '<div class="col-12"><div class="alert alert-warning">Failed to load admin statistics. Please check your permissions.</div></div>';
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.nav-link').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+            document.getElementById(tabName + '-content').style.display = 'block';
+            currentTab = tabName;
+            loadTabContent();
+        }
+
+        async function loadTabContent() {
+            switch(currentTab) {
+                case 'loans':
+                    await loadAllLoans();
+                    break;
+                case 'analytics':
+                    await loadAnalytics();
+                    break;
+                case 'portfolio':
+                    await loadPortfolio();
+                    break;
+            }
+        }
+
+        async function loadAllLoans() {
+            try {
+                document.getElementById('loans-list').innerHTML = '<div class="text-center"><div class="spinner-border"></div><p>Loading loans...</p></div>';
+                
+                const [generalLoans, studentLoans, vehicleLoans] = await Promise.allSettled([
+                    adminApiCall('/loan/all?page=0&size=100'),
+                    adminApiCall('/student-loans/all?page=0&size=100'),
+                    adminApiCall('/vehicle-loans/all?page=0&size=100')
+                ]);
+                
+                allLoansData = [];
+                
+                if (generalLoans.status === 'fulfilled') {
+                    const loans = generalLoans.value.content || [];
+                    allLoansData.push(...loans.map(loan => ({ ...loan, loanType: 'GENERAL' })));
+                }
+                
+                if (studentLoans.status === 'fulfilled') {
+                    const loans = studentLoans.value.content || [];
+                    allLoansData.push(...loans.map(loan => ({ ...loan, loanType: 'STUDENT' })));
+                }
+                
+                if (vehicleLoans.status === 'fulfilled') {
+                    const loans = vehicleLoans.value.content || [];
+                    allLoansData.push(...loans.map(loan => ({ ...loan, loanType: 'VEHICLE' })));
+                }
+                
+                if (allLoansData.length === 0) {
+                    document.getElementById('loans-list').innerHTML = `
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle fa-2x mb-2"></i>
+                            <h6>No Loan Applications Found</h6>
+                            <p class="mb-0">No loans have been submitted by any customers yet.</p>
+                        </div>
+                    `;
+                } else {
+                    displayLoans();
+                }
+            } catch (error) {
+                console.error('Error loading loans:', error);
+                document.getElementById('loans-list').innerHTML = `<div class="alert alert-danger">Failed to load loans: ${error.message}</div>`;
+            }
+        }
+
+        function displayLoans() {
+            let filteredLoans = allLoansData;
+            
+            if (currentStatusFilter !== 'ALL') {
+                filteredLoans = filteredLoans.filter(loan => loan.status === currentStatusFilter);
+            }
+            
+            if (currentTypeFilter !== 'ALL') {
+                filteredLoans = filteredLoans.filter(loan => loan.loanType === currentTypeFilter);
+            }
+
+            if (filteredLoans.length === 0) {
+                document.getElementById('loans-list').innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-search fa-2x mb-2"></i>
+                        <h6>No Loans Found</h6>
+                        <p class="mb-0">No loans match the current filters.</p>
+                        <button class="btn btn-outline-secondary btn-sm mt-2" onclick="clearFilters()">Clear Filters</button>
+                    </div>
+                `;
+                return;
+            }
+
+            const summaryHtml = `
+                <div class="alert alert-primary mb-3">
+                    <strong><i class="fas fa-chart-bar me-2"></i>Loan Applications:</strong> 
+                    Displaying ${filteredLoans.length} of ${allLoansData.length} total applications
+                    <span class="float-end"><small>Status: ${currentStatusFilter} | Type: ${currentTypeFilter}</small></span>
+                </div>
+            `;
+
+            const loansHtml = filteredLoans.map(loan => `
+                <div class="card mb-2 border-start border-3 ${loan.status === 'PENDING' ? 'border-warning' : loan.status === 'APPROVED' ? 'border-success' : loan.status === 'REJECTED' ? 'border-danger' : 'border-info'}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-2">
+                                <strong>Loan #${loan.id}</strong>
+                                <br><span class="badge bg-secondary">${loan.loanType}</span>
+                            </div>
+                            <div class="col-md-2">
+                                <strong>₹${(loan.loanAmount || loan.principal || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                                <br><small class="text-muted">${loan.interestRate}% • ${loan.tenureMonths}m</small>
+                            </div>
+                            <div class="col-md-2">
+                                <span class="badge ${getStatusBadge(loan.status)}">${loan.status}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <strong><i class="fas fa-user me-1"></i>Customer ID: ${loan.customerId}</strong>
+                                <br><small class="text-muted"><i class="fas fa-calendar me-1"></i>${formatDate(loan.applicationDate || loan.createdAt)}</small>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <button class="btn btn-outline-primary btn-sm me-1" onclick="viewLoanDetails(${loan.id}, '${loan.loanType}')">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                                ${loan.status === 'PENDING' ? `
+                                    <button class="btn btn-success btn-sm me-1" onclick="approveLoan(${loan.id}, '${loan.loanType}')">
+                                        <i class="fas fa-check"></i> Approve
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="rejectLoan(${loan.id}, '${loan.loanType}')">
+                                        <i class="fas fa-times"></i> Reject
+                                    </button>
+                                ` : ''}
+                                ${loan.status === 'APPROVED' ? `
+                                    <button class="btn btn-info btn-sm" onclick="disburseLoan(${loan.id}, '${loan.loanType}')">
+                                        <i class="fas fa-money-bill"></i> Disburse
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('loans-list').innerHTML = summaryHtml + loansHtml;
+        }
+
+        async function loadAnalytics() {
+            try {
+                const analytics = await adminApiCall('/dashboard/loan-analytics');
+                document.getElementById('analytics-data').innerHTML = `
+                    <table class="table table-borderless">
+                        <tr><td><strong>Average Processing Time:</strong></td><td>${analytics.averageProcessingTime || 'N/A'} days</td></tr>
+                        <tr><td><strong>Approval Rate:</strong></td><td>${(analytics.approvalRate || 0).toFixed(2)}%</td></tr>
+                    </table>
+                `;
+                document.getElementById('performance-metrics').innerHTML = `<p>Performance metrics loaded</p>`;
+            } catch (error) {
+                document.getElementById('analytics-data').innerHTML = '<div class="alert alert-warning">Analytics data not available</div>';
+                document.getElementById('performance-metrics').innerHTML = '<div class="alert alert-warning">Performance metrics not available</div>';
+            }
+        }
+
+        async function loadPortfolio() {
+            try {
+                const portfolio = await adminApiCall('/dashboard/portfolio-summary');
+                document.getElementById('portfolio-data').innerHTML = `
+                    <table class="table table-borderless">
+                        <tr><td><strong>Total Portfolio Value:</strong></td><td>$${(portfolio.totalPortfolioValue || 0).toFixed(2)}</td></tr>
+                        <tr><td><strong>Active Loans:</strong></td><td>${portfolio.activeLoans || 0}</td></tr>
+                    </table>
+                `;
+            } catch (error) {
+                document.getElementById('portfolio-data').innerHTML = '<div class="alert alert-warning">Portfolio data not available</div>';
+            }
+        }
+
+        function filterByStatus(status) {
+            currentStatusFilter = status;
+            document.querySelectorAll('[id^="status-"]').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`status-${status}`).classList.add('active');
+            displayLoans();
+        }
+        
+        function filterByType(type) {
+            currentTypeFilter = type;
+            document.querySelectorAll('[id^="type-"]').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`type-${type}`).classList.add('active');
+            displayLoans();
+        }
+        
+        function clearFilters() {
+            filterByStatus('ALL');
+            filterByType('ALL');
+        }
+
+        async function viewLoanDetails(loanId, loanType) {
+            showModal();
+            document.getElementById('loanModalBody').innerHTML = '<div class="text-center"><div class="spinner-border"></div></div>';
+            
+            try {
+                let endpoint = '';
+                switch(loanType) {
+                    case 'GENERAL': endpoint = `/loan/${loanId}`; break;
+                    case 'STUDENT': endpoint = `/student-loans/${loanId}`; break;
+                    case 'VEHICLE': endpoint = `/vehicle-loans/${loanId}`; break;
+                }
+                
+                const loan = await adminApiCall(endpoint);
+                displayLoanDetails(loan, loanType);
+            } catch (error) {
+                document.getElementById('loanModalBody').innerHTML = `<div class="alert alert-danger">Failed to load loan details: ${error.message}</div>`;
+            }
+        }
+
+        function displayLoanDetails(loan, loanType) {
+            let specificDetailsHtml = '';
+            
+            // Generate loan type specific details
+            if (loanType === 'STUDENT') {
+                specificDetailsHtml = `
+                    <div class="col-12 mt-3">
+                        <h6 class="text-success">Student Loan Details</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <table class="table table-borderless table-sm">
+                                    <tr><td><strong>Course Name:</strong></td><td>${loan.courseName || 'N/A'}</td></tr>
+                                    <tr><td><strong>Institution:</strong></td><td>${loan.institutionName || 'N/A'}</td></tr>
+                                    <tr><td><strong>Course Duration:</strong></td><td>${loan.courseDurationYears || 'N/A'} years</td></tr>
+                                    <tr><td><strong>Course Fee:</strong></td><td>₹${(loan.courseFee || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td></tr>
+                                    <tr><td><strong>Academic Year:</strong></td><td>${loan.academicYear || 'N/A'}</td></tr>
+                                    <tr><td><strong>Disbursement Type:</strong></td><td>${loan.disbursementType || 'N/A'}</td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-borderless table-sm">
+                                    <tr><td><strong>Student Name:</strong></td><td>${loan.studentName || 'N/A'}</td></tr>
+                                    <tr><td><strong>Student Age:</strong></td><td>${loan.studentAge || 'N/A'}</td></tr>
+                                    <tr><td><strong>Guardian Name:</strong></td><td>${loan.guardianName || 'N/A'}</td></tr>
+                                    <tr><td><strong>Guardian Income:</strong></td><td>₹${(loan.guardianIncome || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td></tr>
+                                    <tr><td><strong>Moratorium Period:</strong></td><td>${loan.moratoriumPeriodMonths || 0} months</td></tr>
+                                    <tr><td><strong>Collateral Provided:</strong></td><td>${loan.collateralProvided ? 'Yes' : 'No'}</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                        ${loan.collateralDetails ? `<p><strong>Collateral Details:</strong> ${loan.collateralDetails}</p>` : ''}
+                        ${loan.nextDisbursementAmount ? `<p><strong>Next Disbursement:</strong> ₹${loan.nextDisbursementAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} on ${formatDate(loan.nextDisbursementDate)}</p>` : ''}
+                    </div>
+                `;
+            } else if (loanType === 'VEHICLE') {
+                specificDetailsHtml = `
+                    <div class="col-12 mt-3">
+                        <h6 class="text-warning">Vehicle Loan Details</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <table class="table table-borderless table-sm">
+                                    <tr><td><strong>Vehicle Type:</strong></td><td>${loan.vehicleType || 'N/A'}</td></tr>
+                                    <tr><td><strong>Vehicle Make:</strong></td><td>${loan.vehicleMake || 'N/A'}</td></tr>
+                                    <tr><td><strong>Vehicle Model:</strong></td><td>${loan.vehicleModel || 'N/A'}</td></tr>
+                                    <tr><td><strong>Vehicle Year:</strong></td><td>${loan.vehicleYear || 'N/A'}</td></tr>
+                                    <tr><td><strong>Vehicle Price:</strong></td><td>₹${(loan.vehiclePrice || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-borderless table-sm">
+                                    <tr><td><strong>Down Payment:</strong></td><td>₹${(loan.downPayment || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td></tr>
+                                    <tr><td><strong>Monthly Income:</strong></td><td>₹${(loan.monthlyIncome || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td></tr>
+                                    <tr><td><strong>Employment Type:</strong></td><td>${loan.employmentType || 'N/A'}</td></tr>
+                                    <tr><td><strong>Loan-to-Value:</strong></td><td>${loan.vehiclePrice ? ((loan.loanAmount / loan.vehiclePrice) * 100).toFixed(1) + '%' : 'N/A'}</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (loanType === 'GENERAL') {
+                specificDetailsHtml = `
+                    <div class="col-12 mt-3">
+                        <h6 class="text-info">General Loan Details</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <table class="table table-borderless table-sm">
+                                    <tr><td><strong>Loan Type:</strong></td><td>${loan.type || 'Personal'}</td></tr>
+                                    <tr><td><strong>Purpose:</strong></td><td>General/Personal Use</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            const detailsHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Loan Information</h6>
+                        <table class="table table-borderless">
+                            <tr><td><strong>Loan ID:</strong></td><td>${loan.id}</td></tr>
+                            <tr><td><strong>Type:</strong></td><td><span class="badge bg-secondary">${loanType}</span></td></tr>
+                            <tr><td><strong>Amount:</strong></td><td><strong>₹${(loan.loanAmount || loan.principal).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td></tr>
+                            <tr><td><strong>Interest Rate:</strong></td><td>${loan.interestRate}%</td></tr>
+                            <tr><td><strong>Tenure:</strong></td><td>${loan.tenureMonths} months</td></tr>
+                            <tr><td><strong>Monthly EMI:</strong></td><td>${loan.monthlyEmi ? '₹' + loan.monthlyEmi.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'Not calculated'}</td></tr>
+                            <tr><td><strong>Outstanding:</strong></td><td>${loan.outstandingAmount ? '₹' + loan.outstandingAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A'}</td></tr>
+                            <tr><td><strong>Status:</strong></td><td><span class="badge ${getStatusBadge(loan.status)}">${loan.status}</span></td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Application Timeline</h6>
+                        <table class="table table-borderless">
+                            <tr><td><strong>Customer ID:</strong></td><td>${loan.customerId}</td></tr>
+                            <tr><td><strong>Customer Name:</strong></td><td>${loan.customerName || 'N/A'}</td></tr>
+                            <tr><td><strong>Customer Email:</strong></td><td>${loan.customerEmail || 'N/A'}</td></tr>
+                            <tr><td><strong>Account Number:</strong></td><td>${loan.accountNumber || 'N/A'}</td></tr>
+                            <tr><td><strong>Applied On:</strong></td><td>${formatDate(loan.applicationDate || loan.createdAt)}</td></tr>
+                            ${loan.approvalDate ? `<tr><td><strong>Approved On:</strong></td><td>${formatDate(loan.approvalDate)}</td></tr>` : ''}
+                            ${loan.disbursementDate ? `<tr><td><strong>Disbursed On:</strong></td><td>${formatDate(loan.disbursementDate)}</td></tr>` : ''}
+                            ${loan.emiStartDate ? `<tr><td><strong>EMI Start Date:</strong></td><td>${formatDate(loan.emiStartDate)}</td></tr>` : ''}
+                        </table>
+                        ${loan.rejectionReason ? `<div class="alert alert-danger mt-2"><strong>Rejection Reason:</strong> ${loan.rejectionReason}</div>` : ''}
+                    </div>
+                    ${specificDetailsHtml}
+                </div>
+            `;
+            
+            document.getElementById('loanModalBody').innerHTML = detailsHtml;
+        }
+
+        async function approveLoan(loanId, loanType) {
+            if (!confirm('Are you sure you want to approve this loan?')) return;
+            
+            try {
+                let endpoint = '';
+                switch(loanType) {
+                    case 'GENERAL': endpoint = `/loan/${loanId}/approve`; break;
+                    case 'STUDENT': endpoint = `/student-loans/${loanId}/approve`; break;
+                    case 'VEHICLE': endpoint = `/vehicle-loans/${loanId}/approve`; break;
+                }
+                
+                console.log('Approving loan:', { loanId, loanType, endpoint });
+                
+                const response = await adminApiCall(endpoint, { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Approval response:', response);
+                alert('Loan approved successfully!');
+                loadAllLoans();
+                loadAdminStats();
+            } catch (error) {
+                console.error('Approval error details:', {
+                    loanId,
+                    loanType,
+                    error: error.message,
+                    stack: error.stack
+                });
+                alert('Failed to approve loan: ' + error.message);
+            }
+        }
+
+        async function rejectLoan(loanId, loanType) {
+            const reason = prompt('Enter rejection reason:');
+            if (!reason) return;
+            
+            try {
+                let endpoint = '';
+                let requestBody = {};
+                switch(loanType) {
+                    case 'GENERAL': 
+                        endpoint = `/loan/${loanId}/reject`; 
+                        requestBody = { reason };
+                        break;
+                    case 'STUDENT': 
+                        endpoint = `/student-loans/${loanId}/reject`; 
+                        requestBody = { reason };
+                        break;
+                    case 'VEHICLE': 
+                        endpoint = `/vehicle-loans/${loanId}/reject`; 
+                        requestBody = { reason };
+                        break;
+                }
+                
+                await adminApiCall(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify(requestBody)
+                });
+                alert('Loan rejected successfully!');
+                loadAllLoans();
+                loadAdminStats();
+            } catch (error) {
+                console.error('Rejection error:', error);
+                alert('Failed to reject loan: ' + error.message);
+            }
+        }
+
+        async function disburseLoan(loanId, loanType) {
+            if (!confirm('Are you sure you want to disburse this loan?')) return;
+            
+            try {
+                let endpoint = '';
+                switch(loanType) {
+                    case 'GENERAL': endpoint = `/loan/${loanId}/disburse`; break;
+                    case 'STUDENT': endpoint = `/student-loans/${loanId}/disburse`; break;
+                    case 'VEHICLE': endpoint = `/vehicle-loans/${loanId}/disburse`; break;
+                }
+                
+                await adminApiCall(endpoint, { method: 'POST' });
+                alert('Loan disbursed successfully!');
+                loadAllLoans();
+                loadAdminStats();
+            } catch (error) {
+                alert('Failed to disburse loan: ' + error.message);
+            }
+        }
+
+        function showModal() {
+            const modal = document.getElementById('loanModal');
+            modal.classList.add('show');
+            modal.style.display = 'block';
+            document.body.classList.add('modal-open');
+            
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.id = 'modal-backdrop';
+            document.body.appendChild(backdrop);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('loanModal');
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            
+            const backdrop = document.getElementById('modal-backdrop');
+            if (backdrop) backdrop.remove();
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'PENDING': 'bg-warning',
+                'APPROVED': 'bg-success',
+                'REJECTED': 'bg-danger',
+                'ACTIVE': 'bg-info',
+                'CLOSED': 'bg-secondary'
+            };
+            return badges[status] || 'bg-secondary';
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'modal-backdrop') {
+                closeModal();
+            }
+        });
+        
+        // Define logout function for admin page
+        window.logout = async function() {
+            try {
+                const token = localStorage.getItem('accessToken');
+                if (token) {
+                    await fetch('/api/auth/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+            } finally {
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = '/login';
+            }
+        };
+        
+        // Define isAuthenticated function for inactivity script
+        window.isAuthenticated = function() {
+            return !!localStorage.getItem('accessToken');
+        };
+    </script>
+</body>
+</html>

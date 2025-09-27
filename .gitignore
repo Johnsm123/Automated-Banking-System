@@ -1,0 +1,40 @@
+# =========================
+# IDE & Editor settings
+# =========================
+.vscode/
+.idea/
+*.iml
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# =========================
+# Build directories
+# =========================
+target/
+out/
+build/
+
+# =========================
+# OS generated files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs & Temp files
+# =========================
+*.log
+*.log.gz
+logs/
+*.tmp
+
+# =========================
+# Environment & secrets
+# =========================
+.env
+
+# Node modules if having frontend files
+node_modules/

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head}">
+    <title>Loan Management - Banking System</title>
+</head>
+<body>
+    <nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="fas fa-tasks me-2"></i>Loan Management
+                </h1>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4" id="loanStats">
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loan Applications -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-hand-holding-usd me-2"></i>Loan Applications</h5>
+                            <div class="btn-group">
+                                <button class="btn btn-outline-secondary btn-sm active" onclick="filterLoans('ALL')" id="filter-ALL">All</button>
+                                <button class="btn btn-outline-warning btn-sm" onclick="filterLoans('PENDING')" id="filter-PENDING">Pending</button>
+                                <button class="btn btn-outline-success btn-sm" onclick="filterLoans('APPROVED')" id="filter-APPROVED">Approved</button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="filterLoans('REJECTED')" id="filter-REJECTED">Rejected</button>
+                                <button class="btn btn-outline-info btn-sm" onclick="filterLoans('ACTIVE')" id="filter-ACTIVE">Active</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="loans-list">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loan Details Modal -->
+    <div class="modal fade" id="loanModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Loan Details</h5>
+                    <button type="button" class="btn-close" onclick="closeModal()"></button>
+                </div>
+                <div class="modal-body" id="loanModalBody">
+                    Loading...
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    <script th:src="@{/js/auth.js}"></script>
+    <script th:src="@{/js/inactivity-logout.js}"></script>
+    <script>
+        let currentFilter = 'ALL';
+
+        async function apiCall(endpoint, options = {}) {
+            const token = localStorage.getItem('accessToken');
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                }
+            };
+            const finalOptions = { ...defaultOptions, ...options, headers: { ...defaultOptions.headers, ...options.headers } };
+            const response = await fetch('/api' + endpoint, finalOptions);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!localStorage.getItem('accessToken')) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            loadLoanStats();
+            loadLoans();
+        });
+
+        async function loadLoanStats() {
+            try {
+                const [allLoans, pendingLoans] = await Promise.all([
+                    apiCall('/loan/all?page=0&size=1'),
+                    apiCall('/loan/pending?page=0&size=1')
+                ]);
+
+                const totalLoans = allLoans.totalElements || 0;
+                const pending = pendingLoans.totalElements || 0;
+
+                // Get approved and active counts
+                const [approvedResponse, activeResponse] = await Promise.all([
+                    apiCall('/loan/all?status=APPROVED&page=0&size=1').catch(() => ({totalElements: 0})),
+                    apiCall('/loan/all?status=ACTIVE&page=0&size=1').catch(() => ({totalElements: 0}))
+                ]);
+
+                const approved = approvedResponse.totalElements || 0;
+                const active = activeResponse.totalElements || 0;
+
+                document.getElementById('loanStats').innerHTML = `
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body text-center">
+                                <h4>${totalLoans}</h4>
+                                <p class="mb-0">Total Applications</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h4>${pending}</h4>
+                                <p class="mb-0">Pending Review</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h4>${approved}</h4>
+                                <p class="mb-0">Approved</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h4>${active}</h4>
+                                <p class="mb-0">Active Loans</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Failed to load loan stats:', error);
+            }
+        }
+
+        async function loadLoans() {
+            try {
+                let endpoint = '/loan/all?page=0&size=50';
+                if (currentFilter !== 'ALL') {
+                    endpoint += `&status=${currentFilter}`;
+                }
+                
+                const response = await apiCall(endpoint);
+                const loans = response.content || [];
+
+                if (loans.length === 0) {
+                    document.getElementById('loans-list').innerHTML = '<p class="text-muted">No loans found for the selected filter.</p>';
+                    return;
+                }
+
+                const loansHtml = loans.map(loan => `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-2">
+                                    <h6 class="mb-1">Loan #${loan.id}</h6>
+                                    <small class="text-muted">${loan.loanType || 'GENERAL'}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <strong>$${(loan.loanAmount || loan.principal || 0).toFixed(2)}</strong>
+                                    <br><small class="text-muted">${loan.interestRate}% APR</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="badge ${getStatusBadge(loan.status)}">${loan.status}</span>
+                                    <br><small class="text-muted">${loan.tenureMonths} months</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <strong>Customer #${loan.customerId}</strong>
+                                    <br><small class="text-muted">${formatDate(loan.applicationDate || loan.createdAt)}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    ${loan.monthlyEmi ? `<strong>EMI: $${loan.monthlyEmi.toFixed(2)}</strong>` : ''}
+                                    ${loan.outstandingAmount ? `<br><small class="text-success">Outstanding: $${loan.outstandingAmount.toFixed(2)}</small>` : ''}
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <div class="btn-group-vertical">
+                                        <button class="btn btn-outline-primary btn-sm mb-1" onclick="viewLoanDetails(${loan.id})">
+                                            <i class="fas fa-eye me-1"></i>Details
+                                        </button>
+                                        ${loan.status === 'PENDING' ? `
+                                            <button class="btn btn-success btn-sm mb-1" onclick="approveLoan(${loan.id})">
+                                                <i class="fas fa-check me-1"></i>Approve
+                                            </button>
+                                            <button class="btn btn-danger btn-sm mb-1" onclick="rejectLoan(${loan.id})">
+                                                <i class="fas fa-times me-1"></i>Reject
+                                            </button>
+                                        ` : ''}
+                                        ${loan.status === 'APPROVED' ? `
+                                            <button class="btn btn-info btn-sm" onclick="disburseLoan(${loan.id})">
+                                                <i class="fas fa-money-bill me-1"></i>Disburse
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('loans-list').innerHTML = loansHtml;
+            } catch (error) {
+                document.getElementById('loans-list').innerHTML = `<div class="alert alert-danger">Failed to load loans: ${error.message}</div>`;
+            }
+        }
+
+        function filterLoans(status) {
+            currentFilter = status;
+            document.querySelectorAll('[id^="filter-"]').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`filter-${status}`).classList.add('active');
+            loadLoans();
+        }
+
+        async function viewLoanDetails(loanId) {
+            showModal();
+            document.getElementById('loanModalBody').innerHTML = '<div class="text-center"><div class="spinner-border"></div></div>';
+            
+            try {
+                const loan = await apiCall(`/loan/${loanId}`);
+                displayLoanDetails(loan);
+            } catch (error) {
+                document.getElementById('loanModalBody').innerHTML = `<div class="alert alert-danger">Failed to load loan details: ${error.message}</div>`;
+            }
+        }
+
+        function displayLoanDetails(loan) {
+            const detailsHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">Loan Information</h6>
+                        <table class="table table-borderless">
+                            <tr><td><strong>Loan ID:</strong></td><td>${loan.id}</td></tr>
+                            <tr><td><strong>Type:</strong></td><td>${loan.loanType || 'GENERAL'}</td></tr>
+                            <tr><td><strong>Amount:</strong></td><td>$${(loan.loanAmount || loan.principal).toFixed(2)}</td></tr>
+                            <tr><td><strong>Interest Rate:</strong></td><td>${loan.interestRate}%</td></tr>
+                            <tr><td><strong>Tenure:</strong></td><td>${loan.tenureMonths} months</td></tr>
+                            <tr><td><strong>Monthly EMI:</strong></td><td>$${(loan.monthlyEmi || 0).toFixed(2)}</td></tr>
+                            <tr><td><strong>Status:</strong></td><td><span class="badge ${getStatusBadge(loan.status)}">${loan.status}</span></td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary mb-3">Application Details</h6>
+                        <table class="table table-borderless">
+                            <tr><td><strong>Customer ID:</strong></td><td>${loan.customerId}</td></tr>
+                            <tr><td><strong>Applied On:</strong></td><td>${formatDate(loan.applicationDate || loan.createdAt)}</td></tr>
+                            ${loan.approvalDate ? `<tr><td><strong>Approved On:</strong></td><td>${formatDate(loan.approvalDate)}</td></tr>` : ''}
+                            ${loan.disbursementDate ? `<tr><td><strong>Disbursed On:</strong></td><td>${formatDate(loan.disbursementDate)}</td></tr>` : ''}
+                            ${loan.outstandingAmount ? `<tr><td><strong>Outstanding:</strong></td><td class="text-success">$${loan.outstandingAmount.toFixed(2)}</td></tr>` : ''}
+                            ${loan.rejectionReason ? `<tr><td><strong>Rejection Reason:</strong></td><td class="text-danger">${loan.rejectionReason}</td></tr>` : ''}
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('loanModalBody').innerHTML = detailsHtml;
+        }
+
+        async function approveLoan(loanId) {
+            if (!confirm('Are you sure you want to approve this loan application?')) return;
+            
+            try {
+                await apiCall(`/loan/${loanId}/approve`, { method: 'POST' });
+                alert('Loan approved successfully!');
+                loadLoans();
+                loadLoanStats();
+            } catch (error) {
+                alert('Failed to approve loan: ' + error.message);
+            }
+        }
+
+        async function rejectLoan(loanId) {
+            const reason = prompt('Enter rejection reason:');
+            if (!reason || reason.trim() === '') {
+                alert('Rejection reason is required');
+                return;
+            }
+            
+            try {
+                await apiCall(`/loan/${loanId}/reject`, {
+                    method: 'POST',
+                    body: JSON.stringify({ reason: reason.trim() })
+                });
+                alert('Loan rejected successfully!');
+                loadLoans();
+                loadLoanStats();
+            } catch (error) {
+                alert('Failed to reject loan: ' + error.message);
+            }
+        }
+
+        async function disburseLoan(loanId) {
+            if (!confirm('Are you sure you want to disburse this loan? This action will transfer funds to the customer account.')) return;
+            
+            try {
+                await apiCall(`/loan/${loanId}/disburse`, { method: 'POST' });
+                alert('Loan disbursed successfully!');
+                loadLoans();
+                loadLoanStats();
+            } catch (error) {
+                alert('Failed to disburse loan: ' + error.message);
+            }
+        }
+
+        function showModal() {
+            const modal = document.getElementById('loanModal');
+            modal.classList.add('show');
+            modal.style.display = 'block';
+            document.body.classList.add('modal-open');
+            
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.id = 'modal-backdrop';
+            document.body.appendChild(backdrop);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('loanModal');
+            modal.classList.remove('show');
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            
+            const backdrop = document.getElementById('modal-backdrop');
+            if (backdrop) backdrop.remove();
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'PENDING': 'bg-warning',
+                'APPROVED': 'bg-success',
+                'REJECTED': 'bg-danger',
+                'ACTIVE': 'bg-info',
+                'CLOSED': 'bg-secondary'
+            };
+            return badges[status] || 'bg-secondary';
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'modal-backdrop') {
+                closeModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('loanModal');
+                if (modal.classList.contains('show')) {
+                    closeModal();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
