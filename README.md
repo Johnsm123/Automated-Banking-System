@@ -1,5 +1,6 @@
 # Online Banking System
 
+#Update for change
 A comprehensive banking application built with Spring Boot, providing secure account management, transaction processing, and loan services.
 
 ## 🏗️ Architecture
@@ -13,18 +14,21 @@ A comprehensive banking application built with Spring Boot, providing secure acc
 ## 🚀 Features
 
 ### Core Banking
+
 - **Account Management**: Create and manage multiple account types (Savings, Checking, Business)
 - **Transaction Processing**: Deposits, withdrawals, and inter-account transfers
 - **Statement Generation**: Mini and full account statements with date filtering
 - **Real-time Balance Updates**: Live account balance tracking
 
 ### Loan Services
+
 - **General Loans**: Personal loans with flexible terms
 - **Student Loans**: Education financing with moratorium periods
 - **Vehicle Loans**: Auto financing with competitive rates
 - **Loan Management**: Application, approval, disbursement, and EMI tracking
 
 ### Security & Administration
+
 - **JWT Authentication**: Secure token-based authentication
 - **Role-based Access**: Customer, Loan Officer, and Admin roles
 - **Admin Dashboard**: System-wide loan and user management
@@ -33,26 +37,29 @@ A comprehensive banking application built with Spring Boot, providing secure acc
 ## 👥 Development Team & Contributions
 
 ### Sprint 1 (September 2025)
-| Contributor | Tasks Completed | Status |
-|-------------|----------------|--------|
-| **Kishor Bhagat** | Security & Configurations, Transaction Management | ✅ Done |
-| **John Samuel Meshach** | Admin Dashboard, Student Loan System | ✅ Done |
-| **Bibhab Ranjan Panda** | Customer & Account Management | ✅ Done |
-| **Aryaman Patra** | Vehicle Loan System | ✅ Done |
-| **Subhasish Kabi** | General Loan System, Statement Generation | ✅ Done |
+
+| Contributor             | Tasks Completed                                   | Status  |
+| ----------------------- | ------------------------------------------------- | ------- |
+| **Kishor Bhagat**       | Security & Configurations, Transaction Management | ✅ Done |
+| **John Samuel Meshach** | Admin Dashboard, Student Loan System              | ✅ Done |
+| **Bibhab Ranjan Panda** | Customer & Account Management                     | ✅ Done |
+| **Aryaman Patra**       | Vehicle Loan System                               | ✅ Done |
+| **Subhasish Kabi**      | General Loan System, Statement Generation         | ✅ Done |
 
 ### Sprint 2 (September 2025)
-| Contributor | Tasks Completed | Status |
-|-------------|------------------|--------|
-| **Aryaman Patra** | Profile Management | ✅ Done |
-| **Kishor Bhagat** | Transaction Pages | ✅ Done |
-| **Bibhab Ranjan Panda** | Account Section, Login/Register Pages | ✅ Done |
-| **John Samuel Meshach & Aryaman Patra** | Loans Module | ✅ Done |
-| **Aryaman Patra** | Dashboard Implementation | ✅ Done |
+
+| Contributor                             | Tasks Completed                       | Status  |
+| --------------------------------------- | ------------------------------------- | ------- |
+| **Aryaman Patra**                       | Profile Management                    | ✅ Done |
+| **Kishor Bhagat**                       | Transaction Pages                     | ✅ Done |
+| **Bibhab Ranjan Panda**                 | Account Section, Login/Register Pages | ✅ Done |
+| **John Samuel Meshach & Aryaman Patra** | Loans Module                          | ✅ Done |
+| **Aryaman Patra**                       | Dashboard Implementation              | ✅ Done |
 
 ## 🛠️ Technology Stack
 
 ### Backend
+
 - **Spring Boot 3.x** - Application framework
 - **Spring Security** - Authentication & authorization
 - **Spring Data JPA** - Data persistence
@@ -61,12 +68,14 @@ A comprehensive banking application built with Spring Boot, providing secure acc
 - **Maven** - Dependency management
 
 ### Frontend
+
 - **Thymeleaf** - Server-side templating
 - **Bootstrap 5** - UI framework
 - **JavaScript ES6** - Client-side functionality
 - **Font Awesome** - Icons
 
 ### Development Tools
+
 - **Swagger** - API documentation
 - **JUnit 5** - Testing framework
 - **Testcontainers** - Integration testing
@@ -95,6 +104,7 @@ src/
 ## 🚦 Getting Started
 
 ### Prerequisites
+
 - Java 17 or higher
 - Oracle Database 19c or higher
 - Maven 3.6+
@@ -102,12 +112,14 @@ src/
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd loanimplementations
    ```
 
 2. **Configure Database**
+
    ```properties
    # Update src/main/resources/application.properties
    spring.datasource.url=jdbc:oracle:thin:@localhost:1521/XEPDB1
@@ -116,6 +128,7 @@ src/
    ```
 
 3. **Initialize Database**
+
    ```bash
    # Run the SQL scripts in order:
    # 1. src/main/resources/01_create_sequences.sql
@@ -124,6 +137,7 @@ src/
    ```
 
 4. **Build and Run**
+
    ```bash
    mvn clean install
    mvn spring-boot:run
@@ -146,6 +160,7 @@ src/
 Access Swagger UI at: `http://localhost:8080/swagger-ui.html`
 
 ### Key Endpoints
+
 - **Authentication**: `/api/auth/*`
 - **Accounts**: `/api/account/*`
 - **Transactions**: `/api/transactions/*`
@@ -176,6 +191,7 @@ mvn jacoco:report
 ## 🔧 Configuration
 
 ### Database Configuration
+
 ```properties
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.OracleDialect
@@ -183,9 +199,9 @@ spring.jpa.show-sql=false
 ```
 
 ### JWT Configuration
+
 ```properties
 jwt.secret=your-secret-key
 jwt.expiration=86400000
 jwt.refresh-expiration=604800000
 ```
-
