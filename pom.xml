@@ -14,6 +14,7 @@
         <java.version>17</java.version>
         <spring-boot.version>3.3.2</spring-boot.version>
         <!-- surefire 3.2.x is stable with JUnit Platform -->
+        <!--Hello to John-->
         <maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
         <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
         <spring.boot.maven.plugin.version>${spring-boot.version}</spring.boot.maven.plugin.version>
